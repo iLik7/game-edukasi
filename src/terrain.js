@@ -130,7 +130,7 @@ export function buildTerrain(scene) {
         { float uw = ${WATER.toFixed(2)} - vWPt.y;            // dasar danau: lebih gelap-kehijauan + kaustik
           if (uw > 0.0) {
             diffuseColor.rgb *= mix(vec3(1.0), vec3(0.45, 0.68, 0.64), clamp(uw * 0.55, 0.0, 1.0));
-            diffuseColor.rgb += caust(vWPt.xz, uTime) * 0.22 * exp(-uw * 0.35) * vec3(0.75, 1.0, 0.92);
+            diffuseColor.rgb += caust(vWPt.xz * 1.6, uTime) * 0.12 * exp(-uw * 0.35) * vec3(0.75, 1.0, 0.92);
           } }`);
   };
   const mesh = new THREE.Mesh(g, mat);

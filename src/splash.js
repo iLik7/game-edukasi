@@ -17,7 +17,7 @@ function pool(scene, N, color, size, tex) {
 export function createSplash(scene, waterY) {
   const tex = dotTex();
   const S = pool(scene, 180, new THREE.Color(0.9, 0.97, 1.0), 0.075, tex);
-  const B = pool(scene, 70, new THREE.Color(0.8, 0.95, 1.0), 0.05, tex);
+  const B = pool(scene, 70, new THREE.Color(0.8, 0.95, 1.0), 0.028, tex);
   const take = (P) => { const i = P.next; P.next = (P.next + 1) % P.N; return i; };
   return {
     /* n partikel, kekuatan p (0..2) */

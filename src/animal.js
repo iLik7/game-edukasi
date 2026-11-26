@@ -95,6 +95,7 @@ function assemble(spec, parts, mats, layer) {
   const mk = (geo, piv, k) => { const m = new THREE.Mesh(geo, M(k)); m.castShadow = m.receiveShadow = true; m.userData.layer = layer; const g = new THREE.Group(); g.position.set(piv[0], piv[1], piv[2]); g.add(m); meshes.push(m); root.add(g); return g; };
   const body = new THREE.Mesh(parts.body, M('body')); body.castShadow = body.receiveShadow = true; body.userData.layer = layer; root.add(body); meshes.push(body);
   const head = mk(parts.head, spec.pivots.head, 'head'), tail = mk(parts.tail, spec.pivots.tail, 'tail');
+  if (parts.extra) for (const [geo, km] of parts.extra) { const m = new THREE.Mesh(geo, M(km)); m.castShadow = true; m.userData.layer = layer; root.add(m); meshes.push(m); }
   const legs = parts.legs.map((g, i) => mk(g, spec.pivots.legs[i], 'legs'));
   return { root, meshes, head, tail, legs };
 }
@@ -160,34 +161,36 @@ export function buildAnimalDissect(renderer, spec) {
   for (const t of [dt, dn]) { t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(2.4, 2.4); }
   dt.colorSpace = THREE.SRGBColorSpace;
   const ped = new THREE.Mesh(new THREE.CylinderGeometry(spec.pedR || 5.6, (spec.pedR || 5.6) + 0.2, 0.3, 64), new THREE.MeshStandardMaterial({ map: dt, normalMap: dn, color: new THREE.Color(0.7, 0.66, 0.62), roughness: 1 }));
-  ped.position.y = spec.groundY - 0.15; ped.receiveShadow = true; ped.userData.noAO = true; scene.add(ped);
+  ped.position.y = spec.groundY - 0.15; ped.receiveShadow = true; ped.userData.noAO = true; if (!spec.noPed) scene.add(ped);
+  const rig = new THREE.Group(); scene.add(rig);   /* semua bagian tubuh; bisa digeser (mis. ikan naik-turun) */
 
   const layerMeshes = [], ent = {};
   const reg = (id, m) => { (ent[id] || (ent[id] = { mats: [], meshes: [] })); if (!ent[id].mats.includes(m.material)) ent[id].mats.push(m.material); ent[id].meshes.push(m); m.userData.layer = id; layerMeshes.push(m); };
 
   const skinA = assemble(spec, spec.bodyParts(1), spec.skinMats(), 'kulit'); const extraMats = spec.face ? spec.face(skinA, spec.pivots.head) : [];
-  scene.add(skinA.root); skinA.meshes.forEach((m) => reg('kulit', m));
-  const mm = new THREE.MeshPhysicalMaterial({ map: muscleTexture(), roughness: 0.5, clearcoat: 0.35, clearcoatRoughness: 0.4 });
-  const musA = assemble(spec, spec.bodyParts(spec.muscleShrink || 0.84), mm, 'otot'); scene.add(musA.root); musA.meshes.forEach((m) => reg('otot', m));
+  rig.add(skinA.root); skinA.meshes.forEach((m) => reg('kulit', m));
+  const mm = spec.muscleMat ? spec.muscleMat() : new THREE.MeshPhysicalMaterial({ map: muscleTexture(), roughness: 0.5, clearcoat: 0.35, clearcoatRoughness: 0.4 });
+  const musA = assemble(spec, spec.bodyParts(spec.muscleShrink || 0.84), mm, 'otot'); rig.add(musA.root); musA.meshes.forEach((m) => reg('otot', m));
   const bm = new THREE.MeshStandardMaterial({ color: C(0.9, 0.85, 0.72), roughness: 0.55 });
-  const bones = new THREE.Mesh(spec.bones(), bm); bones.castShadow = true; bones.receiveShadow = true; scene.add(bones); reg('rangka', bones);
-  if (spec.boneExtras) for (const [geo, mat] of spec.boneExtras()) { const m = new THREE.Mesh(geo, mat); m.castShadow = true; scene.add(m); reg('rangka', m); }
+  const bones = new THREE.Mesh(spec.bones(), bm); bones.castShadow = true; bones.receiveShadow = true; rig.add(bones); reg('rangka', bones);
+  if (spec.boneExtras) for (const [geo, mat] of spec.boneExtras()) { const m = new THREE.Mesh(geo, mat); m.castShadow = true; rig.add(m); reg('rangka', m); }
 
   const organMat = (c, rough = 0.42, cc = 0.35, map) => new THREE.MeshPhysicalMaterial({ color: C(c[0], c[1], c[2]), map: map || null, roughness: rough, clearcoat: cc, clearcoatRoughness: 0.3, transparent: true });
-  const addO = (id, geo, m, pos) => { const o = new THREE.Mesh(geo, m); if (pos) o.position.set(pos[0], pos[1], pos[2]); o.castShadow = o.receiveShadow = true; scene.add(o); reg(id, o); return o; };
+  const addO = (id, geo, m, pos) => { const o = new THREE.Mesh(geo, m); if (pos) o.position.set(pos[0], pos[1], pos[2]); o.castShadow = o.receiveShadow = true; rig.add(o); reg(id, o); return o; };
   const O = spec.organs(addO, organMat);   /* {heart, lungs[], pulse?: [{mesh, rate(act), amp}]} */
 
   /* aliran makanan: jalur utama (oranye) dan opsional jalur memamah biak (hijau) */
   const dot = dotTex(), flows = [];
-  function mkFlow(pts, color, n, speed, loop) {
+  function mkFlow(pts, color, n, speed, loop, opt = {}) {
     const path = new THREE.CatmullRomCurve3(pts.map(V3), !!loop);
     const geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
     const p = new THREE.Points(geo, new THREE.PointsMaterial({ map: dot, color, size: spec.dotSize || 0.16, sizeAttenuation: true, transparent: true, depthWrite: false }));
-    p.frustumCulled = false; p.userData.noAO = true; scene.add(p);
-    flows.push({ p, path, n, speed, u: Array.from({ length: n }, (_, i) => i / n), j: Array.from({ length: n }, () => [Math.random() - 0.5, Math.random() - 0.5]) });
+    p.frustumCulled = false; p.userData.noAO = true; rig.add(p);
+    flows.push({ p, path, n, speed, dir: opt.dir, show: opt.show, jit: opt.jit ?? 0.07, u: Array.from({ length: n }, (_, i) => i / n), j: Array.from({ length: n }, () => [Math.random() - 0.5, Math.random() - 0.5]) });
   }
   mkFlow(spec.food.main, new THREE.Color(2.4, 1.3, 0.35), spec.food.n || 70, 1, false);
   if (spec.food.cud) mkFlow(spec.food.cud, new THREE.Color(0.6, 2.2, 0.5), 26, 1.6, false);
+  for (const f of spec.flows || []) mkFlow(f.pts, f.color, f.n, f.speed, false, f);
 
   const state = { yaw: spec.camYaw || 0, yaw0: spec.camYaw || 0, pitch: 0.3, dist: 16, user: false, sun: 0.2, depth: 0, depthT: 0 };
   for (const id in ent) for (const m of ent[id].mats) { m.userData.base = m.color.clone(); m.transparent = true; }
@@ -223,11 +226,12 @@ export function buildAnimalDissect(renderer, spec) {
       const organView = d > 0.55;
       for (const id in ent) if (!isLayer(id)) for (const me of ent[id].meshes) me.visible = d > 0.4;
       for (const F of flows) {
-        F.p.visible = organView; if (!organView) continue;
-        const pos = F.p.geometry.attributes.position, spd = (0.03 + 0.07 * state.sun) * F.speed;
-        for (let i = 0; i < F.n; i++) { F.u[i] = (F.u[i] + spd * dtm) % 1; const p = F.path.getPoint(F.u[i]); pos.setXYZ(i, p.x + F.j[i][0] * 0.07, p.y + F.j[i][1] * 0.07, p.z); }
+        F.p.visible = organView && (!F.show || F.show(state)); if (!F.p.visible) continue;
+        const pos = F.p.geometry.attributes.position, spd = (0.03 + 0.07 * state.sun) * F.speed * (F.dir ? F.dir(state) : 1);
+        for (let i = 0; i < F.n; i++) { F.u[i] = ((F.u[i] + spd * dtm) % 1 + 1) % 1; const p = F.path.getPoint(F.u[i]); pos.setXYZ(i, p.x + F.j[i][0] * F.jit, p.y + F.j[i][1] * F.jit, p.z); }
         pos.needsUpdate = true;
       }
+      if (spec.onUpdate) spec.onUpdate(state, rig, O, dtm, T);
       const organSel = selected && ent[selected] && !isLayer(selected);
       for (const id in ent) {
         const dim = (organSel && !isLayer(id) && selected !== id) ? 1 : 0;
