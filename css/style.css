@@ -185,3 +185,4 @@ body.leafmode p.leaf-only{display:block}
 .forest-only{display:none}
 body.forestmode .forest-only{display:flex}
 body.nodepth label[for=depth]{display:none!important}
+body.nosun label[for=sun]{display:none!important}
