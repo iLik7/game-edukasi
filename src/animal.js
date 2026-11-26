@@ -80,6 +80,7 @@ export function addEyes(head, HP, o) {
     else if (o.pupil === 'bar') pg = new THREE.BoxGeometry(o.r * 1.0, o.r * 0.3, o.r * 0.1);                       /* persegi panjang mendatar (kambing) */
     else if (o.pupil === 'oval') pg = new THREE.SphereGeometry(1, 12, 10).scale(o.r * 0.6, o.r * 0.32, o.r * 0.1); /* lonjong mendatar (sapi) */
     else pg = new THREE.SphereGeometry(1, 12, 10).scale(o.r * 0.45, o.r * 0.45, o.r * 0.1);
+    if (o.noPupil) continue;
     const pu = new THREE.Mesh(pg, pupM);
     pu.position.copy(e.position).addScaledVector(out, o.r * (o.side ? 0.93 : 0.76));
     pu.lookAt(pu.position.clone().add(out));
@@ -97,7 +98,8 @@ function assemble(spec, parts, mats, layer) {
   const head = mk(parts.head, spec.pivots.head, 'head'), tail = mk(parts.tail, spec.pivots.tail, 'tail');
   if (parts.extra) for (const [geo, km] of parts.extra) { const m = new THREE.Mesh(geo, M(km)); m.castShadow = true; m.userData.layer = layer; root.add(m); meshes.push(m); }
   const legs = parts.legs.map((g, i) => mk(g, spec.pivots.legs[i], 'legs'));
-  return { root, meshes, head, tail, legs };
+  const wings = (parts.wings || []).map((w) => { const g = mk(w.geo, w.piv, 'wings'); g.userData.side = w.side; g.children[0].castShadow = true; return g; });
+  return { root, meshes, head, tail, legs, wings };
 }
 
 /* ================= HEWAN DI DUNIA ================= */
@@ -116,14 +118,14 @@ export function buildWorldAnimal(scene, env, spec, home, seed = 404, bounds = nu
     let speed = 0;
     if (st === 'idle') {
       timer -= dt;
-      if (dp < 3 && !W.graze) { const want = Math.atan2(-dzp, dxp); let d = want - an.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); an.yaw += d * Math.min(1, dt * 3); }
-      if (timer <= 0 && dp > W.keep) {
+      if (dp < 3 && !W.graze && !W.fly) { const want = Math.atan2(-dzp, dxp); let d = want - an.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); an.yaw += d * Math.min(1, dt * 3); }
+      if (timer <= 0 && (dp > W.keep || W.fly)) {
         for (let k = 0; k < 10; k++) { const a = r() * TAU, rr = 1.5 + r() * W.radius, nx = home.x + Math.cos(a) * rr, nz = home.z + Math.sin(a) * rr; if (heightAt(nx, nz) > WATER + 0.5 && (!bounds || Math.hypot(nx - bounds.x, nz - bounds.z) < bounds.r - 1.6)) { tx = nx; tz = nz; st = 'walk'; break; } }
         timer = 3 + r() * 6;
       }
     } else {
       const dx = tx - an.x, dz = tz - an.z, d = Math.hypot(dx, dz);
-      if (d < 0.25 || dp < W.keep * 0.7) { st = 'idle'; timer = 3 + r() * 7; grazeT = W.graze ? 2 + r() * 6 : 0; }
+      if (d < 0.25 || (dp < W.keep * 0.7 && !W.fly)) { st = 'idle'; timer = 3 + r() * 7; grazeT = W.graze ? 2 + r() * 6 : 0; }
       else {
         const want = Math.atan2(-dz, dx); let da = want - an.yaw; da = Math.atan2(Math.sin(da), Math.cos(da)); an.yaw += da * Math.min(1, dt * 3);
         speed = W.speed; an.x += (dx / d) * speed * dt; an.z += (dz / d) * speed * dt;
@@ -133,12 +135,20 @@ export function buildWorldAnimal(scene, env, spec, home, seed = 404, bounds = nu
     grazeT -= dt; const gT = (st === 'idle' && grazeT > 0) ? 1 : 0; graze += (gT - graze) * Math.min(1, dt * 2);
     amp += ((speed > 0 ? 1 : 0) - amp) * Math.min(1, dt * 6); phase += speed * dt * W.step;
     const sw = Math.sin(phase) * W.swing * amp;
-    A.legs[0].rotation.z = sw; A.legs[3].rotation.z = sw * 0.9; A.legs[1].rotation.z = -sw; A.legs[2].rotation.z = -sw * 0.9;
+    /* kaki berselang-seling (2, 4, atau 6 kaki); katak: kaki belakang menendang saat melompat */
+    if (W.hop) { const hk = Math.max(0, Math.sin(phase)) * amp; A.legs.forEach((g, i) => { g.rotation.z = i >= 2 ? -1.1 * hk : 0.5 * hk; }); }
+    else A.legs.forEach((g, i) => { g.rotation.z = sw * (((i % 2) ^ ((i >> 1) % 2)) ? -1 : 1) * (i >= 2 ? 0.9 : 1); });
+    if (A.wings.length) { const fl = W.fly ? Math.sin(T * 13 + seed) * 0.75 + 0.35 : 0.35; A.wings.forEach((g) => { g.rotation.x = -g.userData.side * fl; }); }
     A.tail.rotation.y = Math.sin(T * (W.tailF || 1.4)) * (W.tailA || 0.28);
     A.head.rotation.z = Math.sin(T * 0.8) * 0.04 - amp * 0.04 - graze * (W.graze || 0) + (graze > 0.5 ? Math.sin(T * 7) * 0.03 : 0);
     an.y += (heightAt(an.x, an.z) - an.y) * Math.min(1, dt * 10);
-    wrap.position.set(an.x, an.y + G * S + Math.abs(Math.sin(phase)) * 0.012 * amp, an.z); wrap.rotation.y = an.yaw;
-    hit.position.set(an.x, an.y + spec.hitY, an.z);
+    let lift = Math.abs(Math.sin(phase)) * 0.012 * amp;
+    if (W.hop) lift = Math.max(0, Math.sin(phase)) * W.hop * amp;
+    if (W.fly) lift = W.fly + Math.sin(T * 0.9 + seed) * 0.35 + Math.sin(T * 3.1) * 0.06;
+    an.alt = lift;
+    wrap.position.set(an.x, an.y + G * S + lift, an.z); wrap.rotation.y = an.yaw;
+    if (W.fly) wrap.rotation.z = Math.sin(T * 2.3 + seed) * 0.15;
+    hit.position.set(an.x, an.y + spec.hitY + (W.fly ? lift : 0), an.z);
   };
   return an;
 }
@@ -168,16 +178,20 @@ export function buildAnimalDissect(renderer, spec) {
   const reg = (id, m) => { (ent[id] || (ent[id] = { mats: [], meshes: [] })); if (!ent[id].mats.includes(m.material)) ent[id].mats.push(m.material); ent[id].meshes.push(m); m.userData.layer = id; layerMeshes.push(m); };
 
   const skinA = assemble(spec, spec.bodyParts(1), spec.skinMats(), 'kulit'); const extraMats = spec.face ? spec.face(skinA, spec.pivots.head) : [];
+  skinA.wings.forEach((g) => { g.rotation.x = -g.userData.side * (spec.wingRest ?? 0.3); });
   rig.add(skinA.root); skinA.meshes.forEach((m) => reg('kulit', m));
   const mm = spec.muscleMat ? spec.muscleMat() : new THREE.MeshPhysicalMaterial({ map: muscleTexture(), roughness: 0.5, clearcoat: 0.35, clearcoatRoughness: 0.4 });
-  const musA = assemble(spec, spec.bodyParts(spec.muscleShrink || 0.84), mm, 'otot'); rig.add(musA.root); musA.meshes.forEach((m) => reg('otot', m));
+  const mp = spec.bodyParts(spec.muscleShrink || 0.84); mp.wings = null;
+  const musA = assemble(spec, mp, mm, 'otot'); rig.add(musA.root); musA.meshes.forEach((m) => reg('otot', m));
   const bm = new THREE.MeshStandardMaterial({ color: C(0.9, 0.85, 0.72), roughness: 0.55 });
   const bones = new THREE.Mesh(spec.bones(), bm); bones.castShadow = true; bones.receiveShadow = true; rig.add(bones); reg('rangka', bones);
   if (spec.boneExtras) for (const [geo, mat] of spec.boneExtras()) { const m = new THREE.Mesh(geo, mat); m.castShadow = true; rig.add(m); reg('rangka', m); }
 
   const organMat = (c, rough = 0.42, cc = 0.35, map) => new THREE.MeshPhysicalMaterial({ color: C(c[0], c[1], c[2]), map: map || null, roughness: rough, clearcoat: cc, clearcoatRoughness: 0.3, transparent: true });
   const addO = (id, geo, m, pos) => { const o = new THREE.Mesh(geo, m); if (pos) o.position.set(pos[0], pos[1], pos[2]); o.castShadow = o.receiveShadow = true; rig.add(o); reg(id, o); return o; };
-  const O = spec.organs(addO, organMat);   /* {heart, lungs[], pulse?: [{mesh, rate(act), amp}]} */
+  const O = spec.organs(addO, organMat);
+  const keep = new Set(spec.keepDepth || []);
+  if (spec.decor) spec.decor((id, geo, m, pos) => { const o = new THREE.Mesh(geo, m); if (pos) o.position.set(pos[0], pos[1], pos[2]); o.castShadow = o.receiveShadow = true; scene.add(o); reg(id, o); return o; }, organMat);   /* {heart, lungs[], pulse?: [{mesh, rate(act), amp}]} */
 
   /* aliran makanan: jalur utama (oranye) dan opsional jalur memamah biak (hijau) */
   const dot = dotTex(), flows = [];
@@ -203,6 +217,7 @@ export function buildAnimalDissect(renderer, spec) {
 
   return {
     scene, camera, layerMeshes, state, waterFlow: dummy, sugarFlow: dummy, spec, vitals: spec.vitals,
+    depthFor: (id) => (keep.has(id) ? state.depthT : ({ kulit: 0, otot: 0.32, rangka: 0.68 })[id] ?? 1),
     update(dtm, T, selected, hovered) {
       if (!state.user) state.yaw = state.yaw0 + 0.35 * Math.sin(T * 0.4);
       const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
@@ -224,7 +239,7 @@ export function buildAnimalDissect(renderer, spec) {
       const inh = 0.5 + 0.5 * Math.sin(br); (O.lungs || []).forEach((l) => l.scale.set(1 + 0.05 * inh, 1 + 0.09 * inh, 1 + 0.07 * inh));
       for (const q of O.pulse || []) { q.ph = (q.ph || 0) + dtm * q.rate(state.sun) / 60 * TAU; const s = Math.pow(Math.max(0, Math.sin(q.ph)), 4) * q.amp; q.mesh.scale.set(1 - s * 0.5, 1 - s, 1 - s * 0.5); }
       const organView = d > 0.55;
-      for (const id in ent) if (!isLayer(id)) for (const me of ent[id].meshes) me.visible = d > 0.4;
+      for (const id in ent) if (!isLayer(id) && !keep.has(id)) for (const me of ent[id].meshes) me.visible = d > 0.4;
       for (const F of flows) {
         F.p.visible = organView && (!F.show || F.show(state)); if (!F.p.visible) continue;
         const pos = F.p.geometry.attributes.position, spd = (0.03 + 0.07 * state.sun) * F.speed * (F.dir ? F.dir(state) : 1);
@@ -234,11 +249,11 @@ export function buildAnimalDissect(renderer, spec) {
       if (spec.onUpdate) spec.onUpdate(state, rig, O, dtm, T);
       const organSel = selected && ent[selected] && !isLayer(selected);
       for (const id in ent) {
-        const dim = (organSel && !isLayer(id) && selected !== id) ? 1 : 0;
+        const dim = (organSel && !keep.has(selected) && !isLayer(id) && !keep.has(id) && selected !== id) ? 1 : 0;
         k[id] += (dim - k[id]) * Math.min(1, dtm * 8);
         const glow = selected === id ? 0.16 : (hovered === id ? 0.08 : 0);
         for (const m of ent[id].mats) {
-          if (!isLayer(id)) { m.opacity = 1 - 0.8 * k[id]; m.depthWrite = k[id] < 0.05; }
+          if (!isLayer(id) && !keep.has(id)) { m.opacity = 1 - 0.8 * k[id]; m.depthWrite = k[id] < 0.05; }
           if (m.emissive && m.userData.base) m.emissive.copy(m.userData.base).multiplyScalar(glow);
         }
       }
@@ -272,6 +287,7 @@ export function quadSkeleton(cfg) {
     for (const L of cfg.hind) { const [a, e, w, t] = L.map(m); g.push(limb(a, e, b[0] * 1.25, b[1]), limb(e, w, b[1], b[2]), limb(w, t, b[2], b[3]), ell([b[0] * 1.5, b[0] * 1.5, b[0] * 1.5], a, 8), ell([b[1] * 1.3, b[1] * 1.3, b[1] * 1.3], e, 8)); }
   }
   if (cfg.pelvis) g.push(ell(cfg.pelvis[0], cfg.pelvis[1], 12, cfg.pelvis[2]));
+  if (cfg.extra) g.push(...cfg.extra);
   return merge(g);
 }
 

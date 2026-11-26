@@ -99,7 +99,26 @@ export function createAudio() {
     o.connect(am); am.connect(f1); am.connect(f2); const mix = ctx.createGain(); mix.gain.value = 0.7; f1.connect(mix); f2.connect(mix); mix.connect(g); g.connect(p); p.connect(master);
     o.start(at); o.stop(at + dur + 0.05); trem.start(at); trem.stop(at + dur + 0.05);
   }
-  function call(id, vl, pn) { if (id === 'sapi') moo(vl, pn); else if (id === 'kambing') bleat(vl * 0.9, pn); else meow(vl * 0.8, pn); }
+  /* petok ayam: 3-5 ketukan pendek bernada */
+  function cluck(vl, pn) {
+    if (!ctx || !on) return; const n = 3 + Math.floor(Math.random() * 3);
+    for (let i = 0; i < n; i++) { const at = ctx.currentTime + 0.02 + i * (0.16 + Math.random() * 0.05), f = 520 + Math.random() * 120 + (i === n - 1 ? 250 : 0);
+      const o = ctx.createOscillator(); o.type = 'square'; o.frequency.setValueAtTime(f, at); o.frequency.exponentialRampToValueAtTime(f * 0.7, at + 0.08);
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1200; bp.Q.value = 2;
+      const g = ctx.createGain(), p = pan(pn); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vl * 0.6, at + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, at + (i === n - 1 ? 0.22 : 0.09));
+      o.connect(bp); bp.connect(g); g.connect(p); p.connect(master); o.start(at); o.stop(at + 0.25); }
+  }
+  /* kuak katak: deretan denyut rendah */
+  function croak(vl, pn) {
+    if (!ctx || !on) return; const reps = 2 + Math.floor(Math.random() * 2);
+    for (let k = 0; k < reps; k++) { const at = ctx.currentTime + 0.02 + k * 0.35, dur = 0.22;
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(260, at); o.frequency.linearRampToValueAtTime(200, at + dur);
+      const am = ctx.createGain(); am.gain.value = 0.5; const lfo = ctx.createOscillator(); lfo.frequency.value = 38; const lg = ctx.createGain(); lg.gain.value = 0.5; lfo.connect(lg); lg.connect(am.gain);
+      const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 700; bp.Q.value = 3;
+      const g = ctx.createGain(), p = pan(pn); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vl, at + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+      o.connect(am); am.connect(bp); bp.connect(g); g.connect(p); p.connect(master); o.start(at); o.stop(at + dur + 0.02); lfo.start(at); lfo.stop(at + dur + 0.02); }
+  }
+  function call(id, vl, pn) { if (id === 'sapi') moo(vl, pn); else if (id === 'kambing') bleat(vl * 0.9, pn); else if (id === 'ayam') cluck(vl, pn); else if (id === 'katak') croak(vl, pn); else if (id === 'kupu') return; else meow(vl * 0.8, pn); }
 
   function ramp(g, v, tc = 0.6) { g.gain.setTargetAtTime(v, ctx.currentTime, tc); }
 

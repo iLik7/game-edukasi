@@ -12,6 +12,10 @@ import { buildWorldAnimal, buildAnimalDissect, merge as mergeGeo } from './anima
 import SP_KUCING from './species/kucing.js';
 import SP_SAPI from './species/sapi.js';
 import SP_KAMBING from './species/kambing.js';
+import SP_AYAM from './species/ayam.js';
+import SP_KUPU from './species/kupu.js';
+import SP_KATAK from './species/katak.js';
+import { AYAM, KUPU, KATAK } from './objects/hewan2.js';
 import { fishData, FISH_IDS } from './objects/ikan.js';
 import { fishSpec, buildFishSchools } from './fish.js';
 import { monoData } from './objects/monokotil.js';
@@ -25,7 +29,7 @@ import { createSplash } from './splash.js';
 'use strict';
 const KEY='hutan-ilmu-v1',QKEY='hutan-ilmu-q';
 const TLAYERS=OBJ.layers,TREES=OBJ.specimens,QUIZ=OBJ.quiz;
-const AN=[{data:CAT,spec:SP_KUCING},{data:ruminantData('sapi'),spec:SP_SAPI},{data:ruminantData('kambing'),spec:SP_KAMBING}];
+const AN=[{data:CAT,spec:SP_KUCING},{data:ruminantData('sapi'),spec:SP_SAPI},{data:ruminantData('kambing'),spec:SP_KAMBING},{data:AYAM,spec:SP_AYAM,extra:[[-6,13.5],[-2.5,14]]},{data:KUPU,spec:SP_KUPU,extra:[[-5,-1],[0,-5.5]]},{data:KATAK,spec:SP_KATAK,extra:[[-19,18],[-17.5,23.5]]}];
 const FI=FISH_IDS.map(function(id){const d=fishData(id);return {data:d,spec:fishSpec(d.P),fish:true}});
 const MO=['kelapa','bambu'].map(function(id){const d=monoData(id);return {data:d,mono:true,buildD:function(r){return buildMonoDissect(r,{type:id})}}});
 const LF=[{data:DAUN,leaf:true,buildD:function(r){return buildLeafDissect(r)}}];
@@ -54,7 +58,7 @@ function missionText(){
   const n=foundCount(),t=treeCount();
   if(!S.mission)return 'Temukan 6 lapisan batang: '+n+'/6';
   if(t<TREES.length)return 'Bedah semua pohon bertanda: '+t+'/'+TREES.length;
-  if(animalCount()<AN.length)return 'Bedah hewan: kucing, sapi, kambing '+animalCount()+'/'+AN.length;
+  if(animalCount()<AN.length)return 'Bedah hewan: kucing, sapi, kambing, ayam, kupu-kupu, katak '+animalCount()+'/'+AN.length;
   const mc=MO.filter(function(a){return S.trees[a.data.id]}).length;
   if(mc<MO.length)return 'Bedah tumbuhan monokotil (kelapa, bambu) dan bandingkan dengan jati: '+mc+'/'+MO.length;
   if(!S.trees.daun)return 'Pelajari daun dan fotosintesis di anakan jati dekat jalan setapak.';
@@ -125,6 +129,7 @@ AN.forEach(function(a,k){
   a.w.hit.userData.hero=a.hi;heroHits.push(a.w.hit);
   heroObjs.push({g:a.w.group,mk:mk,ring:ring,y:a.w.y});
   a.callT=4+k*5;
+  a.extraW=(a.extra||[]).map(function(p,j){return buildWorldAnimal(world,{heightAt:heightAt,WATER:WATER},a.spec,{x:p[0],z:p[1]},900+k*17+j*5,null)});
 });
 /* ikan di danau: kawanan instanced; spesimen bedah mengikuti ikan pertama tiap jenis */
 const fishW=buildFishSchools(world,{heightAt:heightAt,WATER:WATER},FI.map(function(a){return Object.assign({P:a.data.P},a.data.world)}),LAKE);
@@ -232,6 +237,7 @@ function sunCaption(){
   if(isAnimal()&&anOf(subject).leaf){$('#sunCap').textContent='';return}
   if(isAnimal()&&anOf(subject).mono){$('#sunCap').textContent=s>0.6?'Cahaya kuat: stomata di daun terbuka lebar, penguapan (transpirasi) tinggi, sehingga air naik cepat lewat xilem di berkas pembuluh. Gula hasil fotosintesis turun lewat floem.':s>0.25?'Cahaya sedang: air naik lebih pelan.':'Gelap: stomata menutup, aliran air melambat.';return}
   if(isFish()){$('#sunCap').textContent=s>0.6?'Ikan aktif: tutup insang bergerak cepat supaya lebih banyak air melewati insang, dan jantung berdetak lebih cepat.':s>0.3?'Aktivitas sedang: tutup insang membuka-menutup dengan teratur.':'Ikan beristirahat: gerakan tutup insang dan detak jantung melambat.';return}
+  if(isAnimal()&&D.spec&&D.spec.capText){$('#sunCap').textContent=D.spec.capText(s);return}
   if(isAnimal()){const v=D.vitals(s);$('#sunCap').textContent='Perkiraan: jantung '+v.bpm+' detak per menit, napas '+v.rr+' kali per menit. Saat aktif, otot butuh lebih banyak oksigen sehingga jantung dan paru bekerja lebih cepat.'+(subject!=='kucing'?' Rumen ikut berkontraksi lebih sering.':'')+' Angka ini kisaran umum, bukan patokan diagnosis.';return}
   $('#sunCap').textContent=s>0.66?'Matahari terik: daun menguapkan banyak air (transpirasi), sehingga air tertarik naik cepat. Fotosintesis tinggi, banyak gula dikirim lewat floem.'
     :s>0.33?'Cahaya sedang: transpirasi dan fotosintesis berjalan sedang.'
@@ -288,7 +294,7 @@ function enterDissect(i){
     if(H.kind==='leaf'){dState.pitch=0.45;dState.dist=window.innerWidth<760?22:13;dState.depthT=0;dState.depth=0;dState.sun=0.7;dState.co2=0.6;dState.h2o=0.8;dState.hold=0;dState.ok=!!S.found[fk('maks')];[['#sun',70],['#depth',0],['#co2',60],['#h2o',80]].forEach(function(q){const e=$(q[0]);if(e)e.value=q[1]})}
     else if(H.kind==='mono'){dState.pitch=0.55;dState.dist=window.innerWidth<760?24:14;dState.depthT=0;dState.depth=0;dState.sun=0.65;const a=$('#sun'),b=$('#depth');if(a)a.value=65;if(b)b.value=0}
     else if(isFish()){dState.pitch=0.25;dState.dist=window.innerWidth<760?35:13;dState.depthT=0;dState.depth=0;dState.sun=0.3;dState.gas=0.25;dState.vy=0;dState.fy=0;dState.hold=0;dState.counter=true;dState.buoyOk=!!S.found[fk('buoy')];const a=$('#sun'),b=$('#depth'),g=$('#gas'),c=$('#counter');if(a)a.value=30;if(b)b.value=0;if(g)g.value=25;if(c)c.checked=true}
-    else if(isAnimal()){dState.pitch=0.3;dState.dist=window.innerWidth<760?(H.id==='sapi'?46:38):(H.id==='sapi'?21:16);dState.depthT=0;dState.depth=0;dState.sun=0.2;const a=$('#sun'),b=$('#depth');if(a)a.value=20;if(b)b.value=0}
+    else if(isAnimal()){dState.pitch=0.3;dState.dist=(D.spec&&D.spec.dist)?D.spec.dist[window.innerWidth<760?1:0]:window.innerWidth<760?(H.id==='sapi'?46:38):(H.id==='sapi'?21:16);dState.depthT=0;dState.depth=0;dState.sun=0.2;const a=$('#sun'),b=$('#depth');if(a)a.value=20;if(b)b.value=0}
     else{dState.pitch=0.5;dState.dist=window.innerWidth<760?19:14}
     if(!S.trees[H.id]){S.trees[H.id]=1;award(10,isAnimal()?H.short+' dibedah':'pohon baru')}
     selected=null;renderChips();renderInfo();sunCaption();updProfile();resize();
@@ -565,7 +571,7 @@ function updWorld(dt){
 
   /* markers, tags, prompt */
   AN.forEach(function(a){
-    const w=a.w;w.update(dt,T,P);
+    const w=a.w;w.update(dt,T,P);a.extraW.forEach(function(e){if(Math.hypot(e.x-P.x,e.z-P.z)<60)e.update(dt,T,P)});
     const H=HEROES[a.hi],o=heroObjs[a.hi];H.x=w.x;H.z=w.z;o.y=w.y;o.mk.position.x=w.x;o.mk.position.z=w.z;o.ring.position.set(w.x,w.y+0.04,w.z);
     /* suara hewan sesekali saat pemain dekat */
     const dx=w.x-P.x,dz=w.z-P.z,d=Math.hypot(dx,dz)||1;
