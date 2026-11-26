@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TAU, $, clamp, lerp, smooth, rng, stepAngle } from './util.js';
 import OBJ from './objects/pohon.js';
-import { heightAt, WATER, LAKE, buildTerrain, buildWater, setPaths } from './terrain.js';
+import { heightAt, WATER, LAKE, buildTerrain, buildWater, setPaths, buildRiver, riverInfo, waterAt } from './terrain.js';
 import { createSky } from './sky.js';
 import { buildVegetation } from './vegetation.js';
 import { createFX } from './fx.js';
@@ -106,6 +106,7 @@ const sky=createSky(world,renderer);
 buildTerrain(world);
 const water=buildWater(world);
 const splash=createSplash(world,WATER);
+const river=buildRiver(world);
 
 /* obstacles */
 const GRID=8,grid=new Map();
@@ -544,7 +545,7 @@ function updWorld(dt){
   const fx=-Math.sin(cam.yaw),fz=-Math.cos(cam.yaw),rx=Math.cos(cam.yaw),rz=-Math.sin(cam.yaw);
   const mx=fx*iy+rx*ix,mz=fz*iy+rz*ix,mag=Math.min(1,Math.hypot(mx,mz));
   let speedNow=0;
-  const dep0=WATER-heightAt(P.x,P.z);
+  const dep0=waterAt(P.x,P.z)-heightAt(P.x,P.z);
   if(mag>0.06){
     const L=Math.hypot(mx,mz),dx=mx/L,dz=mz/L;
     const run=keys.shift||(joy.x*joy.x+joy.y*joy.y>0.72);
@@ -557,7 +558,8 @@ function updWorld(dt){
     collide(P);
     P.phase+=speedNow*dt*1.25;
   }
-  const gy=heightAt(P.x,P.z),dep=WATER-gy;P.y+=(gy-P.y)*Math.min(1,dt*14);
+  const wy=waterAt(P.x,P.z);splash.setLevel(wy);
+  const gy=heightAt(P.x,P.z),dep=wy-gy;P.y+=(gy-P.y)*Math.min(1,dt*14);
   const fx2=P.x+fx*0.55,fz2=P.z+fz*0.55;
   /* masuk / keluar mode berenang */
   const SWIM_D=1.35;
@@ -593,7 +595,7 @@ function updWorld(dt){
   P.eyeS=P.eyeS?P.eyeS+(eyeT-P.eyeS)*Math.min(1,dt*(P.swim?6:16)):eyeT;
   wcam.position.set(P.x+Math.cos(cam.yaw)*sway,P.eyeS,P.z-Math.sin(cam.yaw)*sway);
   /* bawah air: kabut, suara teredam, gelembung */
-  const under=wcam.position.y<WATER-0.03&&WATER-gy>0.05;
+  const under=wcam.position.y<wy-0.03&&wy-gy>0.05;
   if(under!==P.under){P.under=under;document.body.classList.toggle('underwater',under);audio.setUnder(under);
     if(under){splash.bubbles(P.x+fx*0.4,P.eyeS-0.1,P.z+fz*0.4,14);audio.bubbles(8)}else{splash.splash(P.x+fx*0.4,P.z+fz*0.4,12,0.5);audio.splash(1,0.6);screenDrops(6)}}
   if(under){P.bub-=dt;if(P.bub<=0){P.bub=speedNow>0.3?0.5:1.6;splash.bubbles(P.x+fx*0.7,P.eyeS-0.35,P.z+fz*0.7,speedNow>0.3?4:2);if(Math.random()<0.4)audio.bubbles(2,0.03)}}
@@ -681,8 +683,8 @@ function step(dt){
     tDay=(tDay+dt/240)%1;
     updWorld(dt);
     sky.update(tDay,T,dt,{x:P.x,y:P.y+1.6,z:P.z},P.under);setClock();
-    veg.update(P,T,dt);water.update(T);
-    audio.update(dt,{day:sky.day,world:true,under:P.under});
+    veg.update(P,T,dt);water.update(T);river.update(T);
+    {const rd=riverInfo(P.x,P.z).d;audio.update(dt,{day:sky.day,world:true,under:P.under,river:Math.pow(clamp(1-rd/28,0,1),2)})}
     fxW.render(dt);
   }else{
     D.update(dt,T,selected,hovered);

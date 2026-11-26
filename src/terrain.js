@@ -9,13 +9,39 @@ export const LAKE = { x: -34, z: 26, r: 15 };
 export const START = { x: 0, z: 2 };
 
 function baseH(x, z) { return Math.sin(x * 0.045 + 1.3) * Math.cos(z * 0.038) * 2.0 + Math.sin(x * 0.1 + z * 0.08) * 0.5 + Math.cos(x * 0.02 - z * 0.03) * 1.5; }
-export function heightAt(x, z) {
+function h0(x, z) {
   let h = baseH(x, z);
   h *= smooth(9, 26, Math.hypot(x, z));
   const dl = Math.hypot(x - LAKE.x, z - LAKE.z);
   if (dl < LAKE.r + 9) h = lerp(h, -3.3, 1 - smooth(LAKE.r * 0.3, LAKE.r + 9, dl));
   return h;
 }
+/* SUNGAI: polyline dari perbukitan barat laut ke danau. Muka air dibuat tidak pernah naik ke hilir. */
+const RIV_CP = [[-64, 76], [-58, 66], [-52, 57], [-46, 49], [-41, 42], [-36.5, 36.5]];
+export const RIVER = (() => {
+  /* tiap titik kendali: di bawah titik terendah medan pada ruas sebelum dan sesudahnya, dan tidak pernah naik ke hilir */
+  const segMin = (i) => { if (i < 0 || i >= RIV_CP.length - 1) return 1e9; const [ax, az] = RIV_CP[i], [bx, bz] = RIV_CP[i + 1]; let m = 1e9; for (let k = 0; k <= 24; k++) { const t = k / 24; m = Math.min(m, h0(lerp(ax, bx, t), lerp(az, bz, t))); } return m; };
+  let prev = 1e9;
+  return RIV_CP.map(([x, z], i) => { let y = Math.min(prev, segMin(i - 1) - 0.3, segMin(i) - 0.3); if (i === RIV_CP.length - 1) y = Math.min(y, WATER); prev = y; return { x, z, y }; });
+})();
+export const RIVER_W = 2.2;
+export function riverInfo(x, z) {
+  let bd = 1e9, by = 0, bt = 0, seg = 0;
+  for (let i = 0; i < RIVER.length - 1; i++) {
+    const a = RIVER[i], b = RIVER[i + 1], abx = b.x - a.x, abz = b.z - a.z, L2 = abx * abx + abz * abz;
+    const t = clamp(((x - a.x) * abx + (z - a.z) * abz) / L2, 0, 1), dx = x - a.x - abx * t, dz = z - a.z - abz * t, d = Math.hypot(dx, dz);
+    if (d < bd) { bd = d; by = lerp(a.y, b.y, t); bt = t; seg = i; }
+  }
+  return { d: bd, y: by, seg, t: bt };
+}
+export function heightAt(x, z) {
+  let h = h0(x, z);
+  const r = riverInfo(x, z);
+  if (r.d < 3.4) { const bed = r.y - 0.6 * Math.max(0, 1 - (r.d / 2.0) ** 2); h = lerp(Math.min(h, bed), h, smooth(1.9, 3.4, r.d)); }
+  return h;
+}
+/* ketinggian muka air di titik ini: sungai atau danau */
+export function waterAt(x, z) { const r = riverInfo(x, z); return r.d < RIVER_W ? Math.max(WATER, r.y) : WATER; }
 export function hash(x, z) { const s = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453; return s - Math.floor(s); }
 
 /* jalan setapak dari titik awal ke tiap pohon bertanda (rumus sama di GLSL) */
@@ -44,7 +70,10 @@ export const terrainU = { uTime: { value: 0 } };
 export const GLSL_TERRAIN = /* glsl */`
 float tS(float a,float b,float x){ float t=clamp((x-a)/(b-a),0.,1.); return t*t*(3.-2.*t); }
 float tBase(vec2 p){ return sin(p.x*0.045+1.3)*cos(p.y*0.038)*2.0 + sin(p.x*0.1+p.y*0.08)*0.5 + cos(p.x*0.02-p.y*0.03)*1.5; }
-float tHeight(vec2 p){ float h=tBase(p)*tS(9.,26.,length(p)); float dl=length(p-vec2(${LAKE.x}.,${LAKE.z}.)); if(dl<${LAKE.r + 9}.) h=mix(h,-3.3,1.-tS(${LAKE.r * 0.3},${LAKE.r + 9}.,dl)); return h; }
+const vec3 RIV[${RIVER.length}] = vec3[${RIVER.length}](${RIVER.map((p) => `vec3(${p.x.toFixed(2)},${p.z.toFixed(2)},${p.y.toFixed(3)})`).join(',')});
+vec2 rivInfo(vec2 p){ float bd=1e9, by=0.; for(int i=0;i<${RIVER.length - 1};i++){ vec2 a=RIV[i].xy, ab=RIV[i+1].xy-a; float t=clamp(dot(p-a,ab)/dot(ab,ab),0.,1.); float d=length(p-a-ab*t); if(d<bd){ bd=d; by=mix(RIV[i].z,RIV[i+1].z,t);} } return vec2(bd,by); }
+float tHeight(vec2 p){ float h=tBase(p)*tS(9.,26.,length(p)); float dl=length(p-vec2(${LAKE.x}.,${LAKE.z}.)); if(dl<${LAKE.r + 9}.) h=mix(h,-3.3,1.-tS(${LAKE.r * 0.3},${LAKE.r + 9}.,dl));
+  vec2 rv=rivInfo(p); if(rv.x<3.4){ float bed=rv.y-0.6*max(0.,1.-pow(rv.x/2.0,2.)); h=mix(min(h,bed),h,tS(1.9,3.4,rv.x)); } return h; }
 uniform vec4 uPath[8]; uniform vec3 uPathP[8]; uniform int uPathN;
 float tPath(vec2 p){
   float best=1e9;
@@ -208,4 +237,39 @@ export function buildWater(scene) {
     update(T) { uni.uTime.value = T; terrainU.uTime.value = T; },
     ripple(x, z, s) { rip[ri].set(x, z, uni.uTime.value, s); ri = (ri + 1) % rip.length; },
   };
+}
+
+/* permukaan sungai: pita air mengikuti alur, normal map digeser searah arus */
+export function buildRiver(scene) {
+  const nm = waterNormals(); nm.repeat.set(1, 1);
+  const pos = [], uv = [], idx = [], cols = 5; let v = 0, n = 0;
+  for (let i = 0; i < RIVER.length - 1; i++) {
+    const a = RIVER[i], b = RIVER[i + 1], L = Math.hypot(b.x - a.x, b.z - a.z), steps = Math.ceil(L / 0.6);
+    for (let k = (i ? 1 : 0); k <= steps; k++) {
+      const t = k / steps, x = lerp(a.x, b.x, t), z = lerp(a.z, b.z, t), y = lerp(a.y, b.y, t) + 0.02;
+      const nx = -(b.z - a.z) / L, nz = (b.x - a.x) / L;
+      for (let c = 0; c < cols; c++) { const u = c / (cols - 1), w = (u - 0.5) * 2 * (RIVER_W + 0.6); pos.push(x + nx * w, y, z + nz * w); uv.push(u, v / 3); }
+      if (n > 0) for (let c = 0; c < cols - 1; c++) { const p0 = (n - 1) * cols + c, p1 = n * cols + c; idx.push(p0, p1, p0 + 1, p1, p1 + 1, p0 + 1); }
+      n++; v += L / steps;
+    }
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2)); g.setIndex(idx); g.computeVertexNormals();
+  const uni = { uTime: { value: 0 } };
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.06, transparent: true, depthWrite: false, normalMap: nm, normalScale: new THREE.Vector2(0.45, 0.45), envMapIntensity: 1.4 });
+  mat.onBeforeCompile = (sh) => {
+    Object.assign(sh.uniforms, uni);
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(position,1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+      varying vec3 vWP; uniform float uTime;
+      ${GLSL_TERRAIN}`).replace('#include <map_fragment>', `#include <map_fragment>
+      float dep = vWP.y - tHeight(vWP.xz);
+      if (dep < -0.005) discard;
+      diffuseColor.rgb = mix(vec3(0.16, 0.36, 0.3), vec3(0.03, 0.14, 0.15), smoothstep(0.05, 0.55, dep));
+      float foam = (1.0 - smoothstep(0.0, 0.05, dep)) * 0.6;
+      foam += smoothstep(0.8, 1.0, sin(vWP.x * 3.1 + vWP.z * 2.3 - uTime * 4.0) * sin(vWP.z * 1.7 - uTime * 2.5)) * 0.15;
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85, 0.92, 0.9), clamp(foam, 0.0, 1.0) * 0.6);
+      diffuseColor.a = clamp(mix(0.2, 0.82, smoothstep(0.0, 0.4, dep)) + foam * 0.2, 0.0, 1.0);`);
+  };
+  const m = new THREE.Mesh(g, mat); m.userData.noAO = true; m.receiveShadow = true; scene.add(m);
+  return { mesh: m, update(T) { uni.uTime.value = T; nm.offset.set(0, -T * 0.35); } };
 }

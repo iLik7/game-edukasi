@@ -14,12 +14,14 @@ function pool(scene, N, color, size, tex) {
   pts.frustumCulled = false; pts.userData.noAO = true; scene.add(pts);
   return { pts, pos, vel: new Float32Array(N * 3), life: new Float32Array(N), N, next: 0 };
 }
-export function createSplash(scene, waterY) {
+export function createSplash(scene, waterY0) {
+  let waterY = waterY0;
   const tex = dotTex();
   const S = pool(scene, 180, new THREE.Color(0.9, 0.97, 1.0), 0.075, tex);
   const B = pool(scene, 70, new THREE.Color(0.8, 0.95, 1.0), 0.028, tex);
   const take = (P) => { const i = P.next; P.next = (P.next + 1) % P.N; return i; };
   return {
+    setLevel(y) { waterY = y; },
     /* n partikel, kekuatan p (0..2) */
     splash(x, z, n, p) {
       for (let k = 0; k < n; k++) {

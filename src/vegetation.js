@@ -4,7 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { Tree, TreePreset } from '../node_modules/@dgreenheck/ez-tree/src/lib/index.js';
 import { TAU, clamp, smooth, rng, yieldFrame } from './util.js';
-import { heightAt, hash, WATER, SIZE, GLSL_TERRAIN, pathDist, pathUniforms, PATH_W, LAKE, START } from './terrain.js';
+import { heightAt, hash, WATER, SIZE, GLSL_TERRAIN, pathDist, pathUniforms, PATH_W, LAKE, START, riverInfo } from './terrain.js';
 
 /* Gaya render tiap pohon bertanda (data sains tetap di src/objects/pohon.js) */
 const HERO_STYLE = {
@@ -138,7 +138,7 @@ function buildGrass(scene, maxCount) {
         vec2 wp = uPlayer.xz + rel;
         float gh = tHeight(wp);
         float fade = 1.0 - smoothstep(uR * 0.5, uR, length(rel));
-        float ok = step(uWater + 0.55, gh) * smoothstep(uPathW * 0.85, uPathW * 1.6, tPath(wp)) * step(9.0, length(wp) + 14.0);
+        float ok = step(uWater + 0.55, gh) * smoothstep(uPathW * 0.85, uPathW * 1.6, tPath(wp)) * step(9.0, length(wp) + 14.0) * smoothstep(2.3, 3.0, rivInfo(wp).x);
         float clump = 0.5 + 0.5 * sin(wp.x * 0.11) * sin(wp.y * 0.13 + 1.0);
         float sc = aOff.w * fade * ok * mix(0.6, 1.2, clump);
         float ang = aOff.z * 6.2831;
@@ -238,6 +238,7 @@ export async function buildVegetation({ scene, heroes, clear = [], addObs, progr
     const x = (r() * 2 - 1) * 108, z = (r() * 2 - 1) * 108;
     if (Math.hypot(x, z) < 10) continue;
     const h = heightAt(x, z); if (h < WATER + 0.9) continue;
+    if (riverInfo(x, z).d < 3.6) continue;
     if (pathDist(x, z) < 2.6) continue;
     if (heroes.some((H) => Math.hypot(x - H.x, z - H.z) < heroR)) continue;
     if (clear.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + 2)) continue;
@@ -264,6 +265,7 @@ export async function buildVegetation({ scene, heroes, clear = [], addObs, progr
   for (let i = 0, t = 0; i < 150 && t < 3000; t++) {
     const x = (rb() * 2 - 1) * 108, z = (rb() * 2 - 1) * 108, h = heightAt(x, z);
     if (h < WATER + 0.7 || Math.hypot(x, z) < 6 || pathDist(x, z) < 1.8) continue;
+    if (riverInfo(x, z).d < 3.6) continue;
     bs[i % 3].push({ x, y: h, z, s: 0.7 + rb() * 0.7, r: rb(), c: rb() }); i++;
   }
   bushVars.forEach((v, i) => chunkInstances(scene, v, bs[i], chunks, chunkSize, 0));
@@ -322,7 +324,7 @@ export async function buildVegetation({ scene, heroes, clear = [], addObs, progr
         const im = new THREE.InstancedMesh(part.geo, part.mat, N);
         for (let i = 0; i < N; i++) {
           let x, z, h, t = 0;
-          do { const a = rr() * TAU, d = rr() < 0.4 ? LAKE.r + 2 + rr() * 8 : 12 + rr() * 95; x = (rr() < 0.4 ? LAKE.x : 0) + Math.cos(a) * d; z = (rr() < 0.4 ? LAKE.z : 0) + Math.sin(a) * d; h = heightAt(x, z); t++; } while ((h < WATER - 0.3 || Math.hypot(x, z) < 8 || pathDist(x, z) < 2 || Math.abs(x) > 110 || Math.abs(z) > 110) && t < 40);
+          do { const a = rr() * TAU, d = rr() < 0.4 ? LAKE.r + 2 + rr() * 8 : 12 + rr() * 95; x = (rr() < 0.4 ? LAKE.x : 0) + Math.cos(a) * d; z = (rr() < 0.4 ? LAKE.z : 0) + Math.sin(a) * d; h = heightAt(x, z); t++; } while ((h < WATER - 0.3 || riverInfo(x, z).d < 3.0 || Math.hypot(x, z) < 8 || pathDist(x, z) < 2 || Math.abs(x) > 110 || Math.abs(z) > 110) && t < 40);
           const s = 0.5 + rr() * rr() * 2.4;
           e.set((rr() - 0.5) * 0.4, rr() * TAU, (rr() - 0.5) * 0.4); q.setFromEuler(e); p.set(x, h + s * 0.06, z); sc.set(s * (0.9 + rr() * 0.4), s * (0.7 + rr() * 0.3), s);
           m4.compose(p, q, sc); im.setMatrixAt(i, m4);
@@ -338,6 +340,7 @@ export async function buildVegetation({ scene, heroes, clear = [], addObs, progr
     for (let i = 0, t = 0; i < 80 && t < 2000; t++) {
       const a = rf() * TAU, d = 5 + rf() * 55, x = Math.cos(a) * d, z = Math.sin(a) * d, h = heightAt(x, z);
       if (h < WATER + 0.6 || pathDist(x, z) < 1.4) continue;
+    if (riverInfo(x, z).d < 3.6) continue;
       for (let k = 0; k < 3; k++) { const ax = x + (rf() - 0.5) * 3, az = z + (rf() - 0.5) * 3, ah = heightAt(ax, az); if (ah > WATER + 0.5) spotsF.push({ x: ax, y: ah, z: az, s: 0.7 + rf() * 0.6, r: rf() * TAU }); }
       i++;
     }

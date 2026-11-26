@@ -1,7 +1,7 @@
 /* Suara lingkungan prosedural (Web Audio, tanpa file aset): angin, burung, jangkrik malam, dan meong kucing.
    AudioContext baru dibuat setelah interaksi pertama pemain (aturan autoplay browser). */
 export function createAudio() {
-  let ctx = null, master = null, lp = null, under = false, windG = null, windF = null, leafG = null, cricG = null, purrG = null, noiseBuf = null;
+  let ctx = null, master = null, lp = null, under = false, brookG = null, brookF = null, windG = null, windF = null, leafG = null, cricG = null, purrG = null, noiseBuf = null;
   let on = true, vol = 0.8, nextBird = 3, birdFlock = 0, nextMeow = 6, t = 0;
 
   function init() {
@@ -14,6 +14,7 @@ export function createAudio() {
     const src = (type, f, q) => { const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.loopStart = Math.random() * 2; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = ctx.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(master); s.start(); return { g, fl }; };
     const w = src('bandpass', 380, 0.5); windG = w.g; windF = w.fl;
     const l = src('highpass', 2500, 0.4); leafG = l.g;
+    const bk = src('bandpass', 1100, 0.9); brookG = bk.g; brookF = bk.fl;  /* gemericik sungai */
     /* jangkrik: osilator tinggi dengan modulasi amplitudo */
     const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = 4300; const am = ctx.createGain(); am.gain.value = 0;
     const lfo = ctx.createOscillator(); lfo.frequency.value = 16; const lg = ctx.createGain(); lg.gain.value = 0.5; const base = ctx.createGain(); base.gain.value = 0.5;
@@ -134,6 +135,7 @@ export function createAudio() {
       const gust = 0.5 + 0.5 * Math.sin(t * 0.23) * Math.sin(t * 0.071 + 1.3);
       ramp(windG, (0.05 + 0.1 * gust) * inW); windF.frequency.setTargetAtTime(260 + 420 * gust, ctx.currentTime, 0.8);
       ramp(leafG, (0.004 + 0.02 * gust * gust) * inW * (0.4 + 0.6 * s.day));
+      ramp(brookG, 0.09 * (s.river || 0) * (s.under ? 0.3 : 1), 0.4); brookF.frequency.setTargetAtTime(900 + 600 * Math.abs(Math.sin(t * 3.7) * Math.sin(t * 1.3)), ctx.currentTime, 0.05);
       ramp(cricG, 0.012 * Math.max(0, 1 - s.day * 2.2) * inW);
       ramp(purrG, s.catSub ? 0.22 : 0, 0.4);
       if (s.world && !s.under && s.day > 0.35) {
