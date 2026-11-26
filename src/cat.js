@@ -90,14 +90,14 @@ function assemble(parts, k, mat, layer) {
 /* mata, hidung, kumis (hanya kulit) */
 function faceExtras(headGroup) {
   const mats = [];
-  const eyeM = new THREE.MeshStandardMaterial({ color: C(0.62, 0.8, 0.25), roughness: 0.15, transparent: true });
+  const eyeM = new THREE.MeshStandardMaterial({ color: C(0.5, 0.72, 0.18), emissive: C(0.25, 0.4, 0.05), emissiveIntensity: 0.2, roughness: 0.12, transparent: true });
   const pupM = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.3, transparent: true });
   const noseM = new THREE.MeshStandardMaterial({ color: 0xd98a8a, roughness: 0.5, transparent: true });
   const wM = new THREE.LineBasicMaterial({ color: 0xf5efe6, transparent: true, opacity: 0.9 });
   mats.push(eyeM, pupM, noseM, wM);
   for (const s of [1, -1]) {
-    const e = new THREE.Mesh(new THREE.SphereGeometry(0.17, 16, 12), eyeM); e.position.set(4.0 - HEAD_P[0], 1.25 - HEAD_P[1], s * 0.4); headGroup.add(e);
-    const p = new THREE.Mesh(ell([0.04, 0.14, 0.05], [0, 0, 0], 10), pupM); p.position.set(4.14 - HEAD_P[0], 1.25 - HEAD_P[1], s * 0.4); p.userData.noPick = true; headGroup.add(p);
+    const e = new THREE.Mesh(new THREE.SphereGeometry(1, 18, 14), eyeM); e.scale.set(0.14, 0.2, 0.2); e.position.set(4.18 - HEAD_P[0], 1.27 - HEAD_P[1], s * 0.4); headGroup.add(e);
+    const p = new THREE.Mesh(ell([0.05, 0.16, 0.07], [0, 0, 0], 10), pupM); p.position.set(4.3 - HEAD_P[0], 1.27 - HEAD_P[1], s * 0.4); p.userData.noPick = true; headGroup.add(p);
     const pts = [];
     for (let i = 0; i < 3; i++) { const a = (i - 1) * 0.22; pts.push(V3([4.25 - HEAD_P[0], 0.9 - HEAD_P[1], s * 0.25]), V3([4.45 - HEAD_P[0], 0.92 - HEAD_P[1] + a, s * 1.2])); }
     const ls = new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), wM); headGroup.add(ls);

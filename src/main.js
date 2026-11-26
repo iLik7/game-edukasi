@@ -8,6 +8,7 @@ import { createFX } from './fx.js';
 import { buildDissect } from './dissect.js';
 import CAT from './objects/kucing.js';
 import { buildWorldCat, buildCatDissect, vitals } from './cat.js';
+import { createAudio } from './audio.js';
 
 (async function(){
 'use strict';
@@ -99,6 +100,13 @@ const catW=buildWorldCat(world,{heightAt:heightAt,WATER:WATER},{x:CAT.specimen.x
 const P={x:0,z:2,y:0,face:Math.PI,phase:0,jh:0,jv:0};
 P.y=heightAt(P.x,P.z);
 const cam={yaw:0,pitch:-0.04,fov:66};
+let zoomT=1,zoomC=1;
+function zoomBy(f){zoomT=clamp(zoomT*f,0.3,1.15)}
+/* suara */
+const audio=createAudio(),SKEY='hutan-ilmu-snd';
+try{if(localStorage.getItem(SKEY)==='0')audio.setEnabled(false)}catch(e){}
+function sndLabel(){const b=$('#bSnd');if(b)b.querySelector('span').textContent='Suara: '+(audio.enabled?'Nyala':'Mati')}
+['pointerdown','keydown','touchstart'].forEach(function(ev){window.addEventListener(ev,function(){audio.init()},{passive:true})});
 
 /* ================= DISSECT ================= */
 loadProgress(0.72,'Menyiapkan bedah batang…');await tick();
@@ -184,6 +192,7 @@ function enterDissect(i){
   fadeTo(function(){
     curHero=i;const H=HEROES[i];
     useSubject(H.kind==='cat'?'cat':'tree');
+    if(subject==='cat')audio.meow(0.2,0);
     if(subject==='tree')D.setSpecies(Object.assign({id:H.id},H.wood));
     mode='dissect';document.body.classList.add('dissect');
     $('#dName').textContent=H.name;$('#dSci').textContent=(subject==='cat'?'Anatomi dan fisiologi · ':'Penampang batang · ')+H.sci;
@@ -281,6 +290,8 @@ window.addEventListener('keydown',function(e){
   if(mode==='world'){
     if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','shift'].indexOf(k)>=0){keys[k]=true;e.preventDefault()}
     if(k==='e')tryInteract();
+    if(k==='+'||k==='=')zoomBy(0.8);
+    if(k==='-'||k==='_')zoomBy(1.25);
     if(k===' '){jumpReq=true;e.preventDefault()}
     if(k==='j')openJournal();
   }
@@ -341,13 +352,14 @@ canvas.addEventListener('pointermove',function(e){
   const dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
   if(pts.size===1){
     moved+=Math.abs(dx)+Math.abs(dy);
-    if(mode==='world'){cam.yaw-=dx*0.0045;cam.pitch=clamp(cam.pitch-dy*0.004,-1.3,1.3)}
+    if(mode==='world'){const zk=Math.max(0.45,zoomC);cam.yaw-=dx*0.0045*zk;cam.pitch=clamp(cam.pitch-dy*0.004*zk,-1.3,1.3)}
     else{dState.user=true;dState.yaw-=dx*0.008;dState.pitch=clamp(dState.pitch+dy*0.006,-0.25,1.2)}
   }else if(pts.size===2){
     const a=Array.from(pts.values()),d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
     if(pinch0>0){
       const f=pinch0/d;
       if(mode==='dissect'){dState.user=true;dState.dist=clamp(dState.dist*f,6,46)}
+      else zoomBy(f);
     }
     pinch0=d;moved+=20;
   }
@@ -371,8 +383,13 @@ canvas.addEventListener('pointerleave',function(){$('#tipL').style.display='none
 canvas.addEventListener('wheel',function(e){
   e.preventDefault();const f=Math.exp(e.deltaY*0.001);
   if(mode==='dissect'){dState.user=true;dState.dist=clamp(dState.dist*f,6,46)}
+  else if(!modalOpen())zoomBy(Math.exp(e.deltaY*0.0012));
 },{passive:false});
 $('#act').addEventListener('click',tryInteract);
+$('#zIn').addEventListener('click',function(){zoomBy(0.78)});
+$('#zOut').addEventListener('click',function(){zoomBy(1.28)});
+$('#bSnd').addEventListener('click',function(){audio.init();audio.setEnabled(!audio.enabled);try{localStorage.setItem(SKEY,audio.enabled?'1':'0')}catch(e){}sndLabel();if(audio.enabled)audio.meow(0.08,0)});
+sndLabel();
 $('#jump').addEventListener('pointerdown',function(e){e.preventDefault();jumpReq=true});
 
 
@@ -408,7 +425,7 @@ function updWorld(dt){
   const bob=Math.sin(P.phase*2)*0.032*mv,sway=Math.cos(P.phase)*0.018*mv;
   wcam.position.set(P.x+Math.cos(cam.yaw)*sway,P.y+1.68+bob+P.jh,P.z-Math.sin(cam.yaw)*sway);
   wcam.rotation.set(cam.pitch,cam.yaw,0);
-  const tf=66+(speedNow>6?5:0);cam.fov+=(tf-cam.fov)*Math.min(1,dt*5);
+  zoomC+=(zoomT-zoomC)*Math.min(1,dt*8);const tf=(66+(speedNow>6?5:0))*zoomC;cam.fov+=(tf-cam.fov)*Math.min(1,dt*5);
   if(Math.abs(wcam.fov-cam.fov)>0.02){wcam.fov=cam.fov;wcam.updateProjectionMatrix()}
 
   /* markers, tags, prompt */
@@ -469,7 +486,7 @@ sky.update(tDay,T,0.016,{x:P.x,y:P.y+1.6,z:P.z});setClock();
 $('#loading').classList.add('done');
 setTimeout(function(){$('#loading').style.display='none'},700);
 
-if(DEBUG)window.__hi={enter:enterDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},look:function(i,d){const H=HEROES[i];d=d||11;const L=Math.hypot(H.x,H.z-2)||1;P.x=H.x+(0-H.x)/L*d;P.z=H.z+(2-H.z)/L*d;P.y=heightAt(P.x,P.z);cam.yaw=Math.atan2(P.x-H.x,P.z-H.z);cam.pitch=0.22},getMode:function(){return mode}};
+if(DEBUG)window.__hi={enter:enterDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},look:function(i,d){const H=HEROES[i];d=d||11;const L=Math.hypot(H.x,H.z-2)||1;P.x=H.x+(0-H.x)/L*d;P.z=H.z+(2-H.z)/L*d;P.y=heightAt(P.x,P.z);cam.yaw=Math.atan2(P.x-H.x,P.z-H.z);cam.pitch=0.22},getMode:function(){return mode},ds:function(){return dState}};
 
 let last=performance.now(),paused=false;
 function step(dt){
@@ -479,9 +496,11 @@ function step(dt){
     updWorld(dt);
     sky.update(tDay,T,dt,{x:P.x,y:P.y+1.6,z:P.z});setClock();
     veg.update(P,T,dt);water.update(T);
+    { const cdx=catW.x-P.x,cdz=catW.z-P.z,cd=Math.hypot(cdx,cdz)||1;audio.update(dt,{day:sky.day,world:true,catDist:cd,catPan:(cdx*Math.cos(cam.yaw)-cdz*Math.sin(cam.yaw))/cd}) }
     fxW.render(dt);
   }else{
     D.update(dt,T,selected,hovered);
+    audio.update(dt,{day:sky.day,world:false,catSub:subject==='cat',catDist:99,catPan:0});
     fxCur().render(dt);
   }
 }

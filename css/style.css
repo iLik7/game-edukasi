@@ -157,3 +157,7 @@ body.catmode span.cat-only{display:inline}
 body.catmode .tree-only{display:none!important}
 .tools-in{display:flex;flex-wrap:wrap;gap:8px 14px;width:100%}
 @media (min-width:761px){body.catmode #chips{max-height:calc(100% - 150px);overflow-y:auto;padding-right:2px}}
+
+#zoomB{right:max(22px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 40px);display:flex;flex-direction:column;gap:8px}
+.touch #zoomB{bottom:calc(env(safe-area-inset-bottom,0px) + 124px)}
+#zoomB button{width:46px;height:46px;border-radius:50%;border:1px solid var(--line);background:rgba(8,16,14,.55);backdrop-filter:blur(6px);color:#fff;font:700 24px/1 var(--f-display);touch-action:manipulation;cursor:pointer}
