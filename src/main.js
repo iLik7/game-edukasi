@@ -16,6 +16,8 @@ import { fishData, FISH_IDS } from './objects/ikan.js';
 import { fishSpec, buildFishSchools } from './fish.js';
 import { monoData } from './objects/monokotil.js';
 import { buildPalm, buildBamboo, buildMonoDissect } from './monocot.js';
+import DAUN from './objects/daun.js';
+import { buildSapling, buildLeafDissect } from './leaf.js';
 import { createAudio } from './audio.js';
 import { createSplash } from './splash.js';
 
@@ -26,7 +28,8 @@ const TLAYERS=OBJ.layers,TREES=OBJ.specimens,QUIZ=OBJ.quiz;
 const AN=[{data:CAT,spec:SP_KUCING},{data:ruminantData('sapi'),spec:SP_SAPI},{data:ruminantData('kambing'),spec:SP_KAMBING}];
 const FI=FISH_IDS.map(function(id){const d=fishData(id);return {data:d,spec:fishSpec(d.P),fish:true}});
 const MO=['kelapa','bambu'].map(function(id){const d=monoData(id);return {data:d,mono:true,buildD:function(r){return buildMonoDissect(r,{type:id})}}});
-const ALL=AN.concat(FI,MO);
+const LF=[{data:DAUN,leaf:true,buildD:function(r){return buildLeafDissect(r)}}];
+const ALL=AN.concat(FI,MO,LF);
 const HEROES=TREES.concat(ALL.map(function(a){return a.data.specimen}));
 ALL.forEach(function(a,i){a.hi=TREES.length+i});
 const PADDOCK={x:13,z:22.5,r:8.5};
@@ -54,6 +57,7 @@ function missionText(){
   if(animalCount()<AN.length)return 'Bedah hewan: kucing, sapi, kambing '+animalCount()+'/'+AN.length;
   const mc=MO.filter(function(a){return S.trees[a.data.id]}).length;
   if(mc<MO.length)return 'Bedah tumbuhan monokotil (kelapa, bambu) dan bandingkan dengan jati: '+mc+'/'+MO.length;
+  if(!S.trees.daun)return 'Pelajari daun dan fotosintesis di anakan jati dekat jalan setapak.';
   if(fishCount()<FI.length)return 'Selami danau dan bedah 5 jenis ikan: '+fishCount()+'/'+FI.length;
   return 'Semua misi selesai. Coba kuis untuk XP tambahan.';
 }
@@ -108,7 +112,7 @@ function collide(p){
   }
 }
 
-const veg=await buildVegetation({scene:world,heroes:TREES,clear:[PADDOCK].concat(MO.map(function(a){const H=a.data.specimen;return {x:H.x,z:H.z,r:5}}),[{x:-18,z:38,r:5}]),addObs:addObs,quality:quality,progress:function(f,t){loadProgress(0.1+f*0.6,t)}});
+const veg=await buildVegetation({scene:world,heroes:TREES,clear:[PADDOCK,{x:4,z:-3,r:2.5}].concat(MO.map(function(a){const H=a.data.specimen;return {x:H.x,z:H.z,r:5}}),[{x:-18,z:38,r:5}]),addObs:addObs,quality:quality,progress:function(f,t){loadProgress(0.1+f*0.6,t)}});
 const heroObjs=veg.heroObjs,heroHits=veg.heroHits;
 /* hewan di dunia: dijadwalkan setelah pohon supaya tag, prompt, dan klik memakai jalur yang sama */
 AN.forEach(function(a,k){
@@ -138,6 +142,15 @@ MO.forEach(function(a){
   const rg=new THREE.RingGeometry(1.4,1.55,48,1);rg.rotateX(-Math.PI/2);
   const ring=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({color:new THREE.Color(2.2,1.7,0.5),transparent:true,opacity:0.8,side:THREE.DoubleSide,depthWrite:false}));ring.position.set(H.x,y+0.05,H.z);ring.userData.noAO=true;world.add(ring);
   const hit=new THREE.Mesh(new THREE.CylinderGeometry(1.2,1.2,6,8),new THREE.MeshBasicMaterial({visible:false}));hit.position.set(H.x,y+3,H.z);hit.userData.hero=a.hi;world.add(hit);heroHits.push(hit);
+  heroObjs.push({g:new THREE.Object3D(),mk:mk,ring:ring,y:y});
+});
+/* anakan jati untuk pelajaran daun */
+LF.forEach(function(a){
+  const H=a.data.specimen,y=heightAt(H.x,H.z);buildSapling(world,H.x,y,H.z);addObs(H.x,H.z,0.2);
+  const mk=new THREE.Mesh(new THREE.OctahedronGeometry(0.16,0),new THREE.MeshStandardMaterial({color:0xffd35a,emissive:0xffa800,emissiveIntensity:2.2,roughness:0.3}));mk.position.set(H.x,0,H.z);mk.userData.noAO=true;world.add(mk);
+  const rg=new THREE.RingGeometry(0.7,0.8,40,1);rg.rotateX(-Math.PI/2);
+  const ring=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({color:new THREE.Color(2.2,1.7,0.5),transparent:true,opacity:0.8,side:THREE.DoubleSide,depthWrite:false}));ring.position.set(H.x,y+0.05,H.z);ring.userData.noAO=true;world.add(ring);
+  const hit=new THREE.Mesh(new THREE.CylinderGeometry(0.6,0.6,2.4,8),new THREE.MeshBasicMaterial({visible:false}));hit.position.set(H.x,y+1.2,H.z);hit.userData.hero=a.hi;world.add(hit);heroHits.push(hit);
   heroObjs.push({g:new THREE.Object3D(),mk:mk,ring:ring,y:y});
 });
 /* pagar padang rumput, ada celah gerbang menghadap titik awal */
@@ -205,6 +218,9 @@ function useSubject(kind){
   dcam=D.camera;layerMeshes=D.layerMeshes;waterFlow=D.waterFlow;sugarFlow=D.sugarFlow;dState=D.state;
   document.body.classList.toggle('catmode',kind!=='tree');
   document.body.classList.toggle('monomode',kind!=='tree'&&!!anOf(kind).mono);
+  const lf=kind!=='tree'&&!!anOf(kind).leaf;document.body.classList.toggle('leafmode',lf);
+  $('#depthLbl').textContent=lf?'Perbesaran':'Kedalaman';
+  $('#sunLbl').textContent=lf?'Cahaya':(kind==='tree'||anOf(kind).mono)?'Matahari':'Aktivitas';
   document.body.classList.toggle('fishmode',kind!=='tree'&&!!anOf(kind).fish);
 }
 const fxCur=function(){return subject==='tree'?fxD:anOf(subject).fx};
@@ -213,6 +229,7 @@ const fxCur=function(){return subject==='tree'?fxD:anOf(subject).fx};
 let mode='world',curHero=0;
 function sunCaption(){
   const s=dState.sun;
+  if(isAnimal()&&anOf(subject).leaf){$('#sunCap').textContent='';return}
   if(isAnimal()&&anOf(subject).mono){$('#sunCap').textContent=s>0.6?'Cahaya kuat: stomata di daun terbuka lebar, penguapan (transpirasi) tinggi, sehingga air naik cepat lewat xilem di berkas pembuluh. Gula hasil fotosintesis turun lewat floem.':s>0.25?'Cahaya sedang: air naik lebih pelan.':'Gelap: stomata menutup, aliran air melambat.';return}
   if(isFish()){$('#sunCap').textContent=s>0.6?'Ikan aktif: tutup insang bergerak cepat supaya lebih banyak air melewati insang, dan jantung berdetak lebih cepat.':s>0.3?'Aktivitas sedang: tutup insang membuka-menutup dengan teratur.':'Ikan beristirahat: gerakan tutup insang dan detak jantung melambat.';return}
   if(isAnimal()){const v=D.vitals(s);$('#sunCap').textContent='Perkiraan: jantung '+v.bpm+' detak per menit, napas '+v.rr+' kali per menit. Saat aktif, otot butuh lebih banyak oksigen sehingga jantung dan paru bekerja lebih cepat.'+(subject!=='kucing'?' Rumen ikut berkontraksi lebih sering.':'')+' Angka ini kisaran umum, bukan patokan diagnosis.';return}
@@ -229,6 +246,10 @@ function renderChips(){
 }
 function renderInfo(){
   const el=$('#info'),H=HEROES[curHero];
+  if(!selected&&isAnimal()&&anOf(subject).leaf){
+    el.innerHTML='<h2>Daun dan fotosintesis</h2><p class="sci">'+H.sci+'</p><p class="hint">'+H.hint+'</p><h3>Persamaan</h3><p>'+H.fact+'</p>';
+    return;
+  }
   if(!selected&&isAnimal()&&anOf(subject).mono){
     el.innerHTML='<h2>Penampang batang '+H.short+'</h2><p class="sci">'+H.sci+' · monokotil</p><p class="hint">'+H.hint+'</p><h3>Tentang '+H.short+'</h3><p>'+H.fact+'</p>';
     return;
@@ -262,9 +283,10 @@ function enterDissect(i){
     if(isAnimal()&&H.kind==='animal')audio.call(H.id,0.2,0);
     if(subject==='tree')D.setSpecies(Object.assign({id:H.id},H.wood));
     mode='dissect';document.body.classList.add('dissect');
-    $('#dName').textContent=H.name;$('#dSci').textContent=(isAnimal()&&H.kind!=='mono'?'Anatomi dan fisiologi · ':'Penampang batang · ')+H.sci;
+    $('#dName').textContent=H.name;$('#dSci').textContent=(H.kind==='leaf'?'Daun dan fotosintesis · ':isAnimal()&&H.kind!=='mono'?'Anatomi dan fisiologi · ':'Penampang batang · ')+H.sci;
     dState.yaw=dState.yaw0||0;dState.user=false;
-    if(H.kind==='mono'){dState.pitch=0.55;dState.dist=window.innerWidth<760?24:14;dState.depthT=0;dState.depth=0;dState.sun=0.65;const a=$('#sun'),b=$('#depth');if(a)a.value=65;if(b)b.value=0}
+    if(H.kind==='leaf'){dState.pitch=0.45;dState.dist=window.innerWidth<760?22:13;dState.depthT=0;dState.depth=0;dState.sun=0.7;dState.co2=0.6;dState.h2o=0.8;dState.hold=0;dState.ok=!!S.found[fk('maks')];[['#sun',70],['#depth',0],['#co2',60],['#h2o',80]].forEach(function(q){const e=$(q[0]);if(e)e.value=q[1]})}
+    else if(H.kind==='mono'){dState.pitch=0.55;dState.dist=window.innerWidth<760?24:14;dState.depthT=0;dState.depth=0;dState.sun=0.65;const a=$('#sun'),b=$('#depth');if(a)a.value=65;if(b)b.value=0}
     else if(isFish()){dState.pitch=0.25;dState.dist=window.innerWidth<760?35:13;dState.depthT=0;dState.depth=0;dState.sun=0.3;dState.gas=0.25;dState.vy=0;dState.fy=0;dState.hold=0;dState.counter=true;dState.buoyOk=!!S.found[fk('buoy')];const a=$('#sun'),b=$('#depth'),g=$('#gas'),c=$('#counter');if(a)a.value=30;if(b)b.value=0;if(g)g.value=25;if(c)c.checked=true}
     else if(isAnimal()){dState.pitch=0.3;dState.dist=window.innerWidth<760?(H.id==='sapi'?46:38):(H.id==='sapi'?21:16);dState.depthT=0;dState.depth=0;dState.sun=0.2;const a=$('#sun'),b=$('#depth');if(a)a.value=20;if(b)b.value=0}
     else{dState.pitch=0.5;dState.dist=window.innerWidth<760?19:14}
@@ -344,6 +366,8 @@ $('#tSugar').addEventListener('change',function(e){sugarFlow.pts.visible=e.targe
 $('#sun').addEventListener('input',function(e){dState.sun=+e.target.value/100;sunCaption()});
 $('#depth').addEventListener('input',function(e){dState.depthT=+e.target.value/100;dState.user=true});
 $('#gas').addEventListener('input',function(e){dState.gas=+e.target.value/100});
+$('#co2').addEventListener('input',function(e){dState.co2=+e.target.value/100});
+$('#h2o').addEventListener('input',function(e){dState.h2o=+e.target.value/100});
 $('#counter').addEventListener('change',function(e){dState.counter=e.target.checked});
 function hideTip(){$('#tip').style.display='none'}
 $('#tipX').addEventListener('click',hideTip);
@@ -620,6 +644,11 @@ function step(dt){
     fxW.render(dt);
   }else{
     D.update(dt,T,selected,hovered);
+    if(isAnimal()&&anOf(subject).leaf&&dState.R){
+      gasAcc+=dt;if(gasAcc>0.12){gasAcc=0;const R=dState.R,pc=Math.round(R.rate*100);$('#rateBar').style.width=pc+'%';$('#rateTxt').textContent=pc+'%';
+        $('#rateCap').textContent='Laju fotosintesis '+pc+'%. '+(R.rate>0.95?'Maksimal! Semua faktor cukup.':'Faktor pembatas: '+R.lim+'.')+' Stomata '+(R.open>0.7?'terbuka lebar':R.open>0.25?'setengah terbuka':'menutup')+(R.open<0.25&&dState.h2o<0.3?' karena kekurangan air.':R.open<0.25?' karena gelap.':'.')}
+      if(dState.ok&&!S.found[fk('maks')]){S.found[fk('maks')]=1;award(30,'fotosintesis maksimal');save()}
+    }
     if(isFish()){
       gasAcc+=dt;if(gasAcc>0.15){gasAcc=0;const st=dState.status;$('#gasCap').textContent=(st==='melayang'?'Ikan melayang: daya apung seimbang dengan berat tubuh.':st==='tenggelam'?'Ikan tenggelam: gas di gelembung renang kurang.':'Ikan naik: gas di gelembung renang terlalu banyak.')+(dState.counter===false?' Aliran searah: darah dan air sejalan, oksigen yang terserap jauh lebih sedikit.':' Aliran berlawanan arah: darah (merah) melawan arus air (biru), oksigen terserap maksimal.')}
       if(dState.buoyOk&&!S.found[fk('buoy')]){S.found[fk('buoy')]=1;award(30,'ikan melayang seimbang');save()}

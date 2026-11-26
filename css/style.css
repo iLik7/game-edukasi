@@ -173,5 +173,11 @@ body.dissect #uw{display:none}
 body.fishmode .fish-only{display:flex}
 body.fishmode p.fish-only{display:block}
 
-body.monomode span.cat-only{display:none}
-body.monomode .sl span.tree-only{display:inline!important}
+
+.leaf-only{display:none}
+body.leafmode .leaf-only{display:flex}
+body.leafmode p.leaf-only{display:block}
+.rate{align-items:center;gap:10px;width:100%}
+.rbar{flex:1;height:10px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden}
+.rbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fbf4a,#f2d35c);transition:width .2s}
+#rateTxt{font:700 14px var(--f-display);min-width:44px;text-align:right}
