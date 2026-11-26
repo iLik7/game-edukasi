@@ -172,3 +172,6 @@ body.dissect #uw{display:none}
 .fish-only{display:none}
 body.fishmode .fish-only{display:flex}
 body.fishmode p.fish-only{display:block}
+
+body.monomode span.cat-only{display:none}
+body.monomode .sl span.tree-only{display:inline!important}
