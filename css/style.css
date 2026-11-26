@@ -53,9 +53,18 @@ body.dissect .world-ui,body.dissect #tags{display:none!important}
 #clock.night i{background:#9db4ff;box-shadow:0 0 10px #9db4ff}
 #tip{left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);width:min(560px,calc(100vw - 32px));padding:12px 40px 12px 16px;font-size:13.5px}
 #tip button{position:absolute;right:6px;top:6px;width:30px;height:30px;border-radius:50%;border:0;background:transparent;font-size:18px;color:var(--muted)}
-#act{right:max(16px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 24px);display:none}
+#act{left:0;top:0;display:none;align-items:center;gap:10px;padding:6px 16px 6px 6px;border-radius:999px;border:1px solid rgba(255,255,255,.35);background:rgba(8,16,14,.55);backdrop-filter:blur(6px);color:#fff;font:inherit;cursor:pointer;will-change:transform;touch-action:manipulation}
 #act.on{display:inline-flex}
-#act{min-height:54px;padding:0 24px;font-size:16px}
+#act .key{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:#fff;color:#111;font:800 19px/1 var(--f-display);box-shadow:0 0 0 0 rgba(255,255,255,.7);animation:actp 1.6s ease-out infinite}
+#act .lbl{display:flex;flex-direction:column;text-align:left;line-height:1.15}
+#act .lbl b{font:800 16px var(--f-display);letter-spacing:.02em;text-transform:uppercase}
+#act .lbl small{font:600 12px var(--f-body);color:rgba(255,255,255,.75)}
+.touch #act .key{font-size:0}
+.touch #act .key::before{content:"";width:18px;height:18px;border-radius:50%;background:#111}
+@keyframes actp{0%{box-shadow:0 0 0 0 rgba(255,255,255,.65)}100%{box-shadow:0 0 0 14px rgba(255,255,255,0)}}
+#jump{right:max(22px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 40px);width:68px;height:68px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.12);color:#fff;display:none;place-items:center;touch-action:manipulation}
+#jump svg{width:30px;height:30px}
+.touch #jump{display:grid}
 #joy{left:max(18px,env(safe-area-inset-left,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 22px);width:128px;height:128px;border-radius:50%;background:rgba(255,255,255,.08);border:1px solid var(--line);touch-action:none;display:none}
 #joy i{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(255,255,255,.28);border:1px solid rgba(255,255,255,.4)}
 .touch #joy{display:block}

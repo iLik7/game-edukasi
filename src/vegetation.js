@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { Tree, TreePreset } from '../node_modules/@dgreenheck/ez-tree/src/lib/index.js';
@@ -7,9 +8,18 @@ import { heightAt, hash, WATER, SIZE, GLSL_TERRAIN, pathDist, pathUniforms, PATH
 
 /* Gaya render tiap pohon bertanda (data sains tetap di src/objects/pohon.js) */
 const HERO_STYLE = {
-  jati:     { preset: 'Ash Large', seed: 4211, height: 17, leafScale: 1.5, tint: 0x6a9a3a },
-  mahoni:   { preset: 'Oak Large', seed: 9083, height: 19, leafScale: 1.0, tint: 0x3f7a3a },
-  beringin: { preset: 'Oak Large', seed: 1377, height: 15, leafScale: 0.8, tint: 0x5a9a42, bark: 'willow', leaf: 'aspen', leafCount: 1.5 },
+  /* jati: batang lurus tinggi, daun sangat besar, tajuk agak terbuka */
+  jati: { preset: 'Ash Large', seed: 4211, height: 18, leafScale: 2.3, leafCount: 0.7, tint: 0x6f9c34, tweak(o) { o.branch.gnarliness[0] = 0.02; o.branch.length[0] *= 1.15; o.branch.angle[1] = 55; } },
+  /* mahoni: tajuk rapat gelap, daun majemuk menyirip mengilap */
+  mahoni: { preset: 'Oak Large', seed: 9083, height: 19, leaf: 'ash', leafScale: 1.0, leafCount: 1.9, tint: 0x2c6330 },
+  /* beringin: tajuk kubah lebar, daun kecil rapat, akar gantung */
+  beringin: { preset: 'Oak Large', seed: 1377, height: 14, bark: 'willow', leaf: 'aspen', leafScale: 0.85, leafCount: 1.9, tint: 0x4a8c3a, roots: true,
+    tweak(o) { o.branch.length[0] *= 0.7; o.branch.radius[0] *= 1.5; o.branch.length[1] *= 1.25; o.branch.angle[1] = 80; } },
+  /* pinus merkusii: kerucut tinggi, jarum panjang */
+  pinus: { preset: 'Pine Large', seed: 6654, height: 22, tint: 0x3e6a3a },
+  /* trembesi: payung lebar, batang pendek tebal */
+  trembesi: { preset: 'Oak Large', seed: 2025, height: 15, leaf: 'ash', leafScale: 0.9, leafCount: 1.9, tint: 0x5b9a3c,
+    tweak(o) { o.branch.length[0] *= 0.65; o.branch.radius[0] *= 1.35; o.branch.length[1] *= 1.7; o.branch.angle[1] = 88; o.branch.gnarliness[1] = 0.12; } },
 };
 
 export const windU = { uTime: { value: 0 }, uWindAmp: { value: 1 } };
@@ -27,6 +37,7 @@ function makeVariant(presetName, o) {
   if (o.leafCount) t.options.leaves.count = Math.round(t.options.leaves.count * o.leafCount);
   if (o.leafScale) t.options.leaves.size *= o.leafScale;
   if (o.tint != null) t.options.leaves.tint = o.tint;
+  if (o.tweak) o.tweak(t.options);
   if (o.lite) { /* LOD jauh: daun separuh tapi lebih besar, cabang lebih kasar */
     const op = t.options;
     op.leaves.count = Math.max(2, Math.round(op.leaves.count * (o.liteLeaf || 0.5))); op.leaves.size *= 1 / Math.sqrt(o.liteLeaf || 0.5);
@@ -171,6 +182,7 @@ function chunkInstances(scene, variant, spots, chunks, size, lod) {
       c.setRGB(0.82 + s.c * 0.3, 0.86 + s.c * 0.26, 0.78 + s.c * 0.2); leaf.setColorAt(i, c);
     });
     for (const m of [bark, leaf]) { m.castShadow = lod === 0; m.receiveShadow = true; m.instanceMatrix.needsUpdate = true; m.computeBoundingSphere(); m.visible = false; scene.add(m); }
+    bark.userData.bark = true;
     leaf.instanceColor.needsUpdate = true;
     chunks.push({ cx: (kx + 0.5) * size, cz: (kz + 0.5) * size, half: size * 0.72, meshes: [bark, leaf], n: arr.length, lod: lod || 0, bush: !!variant.bush });
   });
@@ -266,6 +278,17 @@ export async function buildVegetation({ scene, heroes, addObs, progress, quality
     const bark = new THREE.Mesh(v.barkGeo, v.barkMat), leaf = new THREE.Mesh(v.leafGeo, v.leafMat);
     leaf.customDepthMaterial = v.depthMat; leaf.userData.noAO = true;
     for (const m of [bark, leaf]) { m.castShadow = true; m.receiveShadow = true; m.scale.setScalar(v.scale); g.add(m); }
+    if (st.roots) { /* akar gantung beringin: satu mesh gabungan, murah */
+      const rr = rng(88 + i), parts = [];
+      for (let q = 0; q < 34; q++) {
+        const a = rr() * TAU, d = 1.2 + Math.pow(rr(), 0.7) * 5.2, rad = 0.012 + rr() * 0.02;
+        const top = 4.2 + rr() * 3.6, hh = top - (rr() < 0.35 ? 0 : rr() * (top - 0.6)); /* sebagian menyentuh tanah, sebagian menggantung */
+        const cg = new THREE.CylinderGeometry(rad * 0.5, rad, hh, 4, 3, true); cg.translate(0, -hh / 2, 0);
+        const p3 = cg.attributes.position; for (let k = 0; k < p3.count; k++) { const yy = p3.getY(k); p3.setX(k, p3.getX(k) + Math.sin(yy * 1.7 + q) * 0.05); }
+        cg.rotateZ((rr() - 0.5) * 0.1); cg.translate(Math.cos(a) * d, top, Math.sin(a) * d); parts.push(cg);
+      }
+      const rm = new THREE.Mesh(mergeGeometries(parts), v.barkMat); rm.castShadow = true; g.add(rm);
+    }
     scene.add(g);
     H.top = v.height; /* dipakai penanda dan kolom klik */
     const mk = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 0), new THREE.MeshStandardMaterial({ color: 0xffd35a, emissive: 0xffa800, emissiveIntensity: 2.2, roughness: 0.3 }));
@@ -282,7 +305,7 @@ export async function buildVegetation({ scene, heroes, addObs, progress, quality
   }
 
   /* rumput */
-  const grass = buildGrass(scene, quality === 'hemat' ? 12000 : 34000);
+  const grass = buildGrass(scene, quality === 'hemat' ? 8000 : 34000);
   grass.maxCount = 34000;
 
   /* batu dan bunga */
@@ -335,12 +358,14 @@ export async function buildVegetation({ scene, heroes, addObs, progress, quality
     heroObjs, heroHits, grass, chunks, info,
     setQuality(q) {
       lowDetail.v = q === 'hemat';
-      grass.geo.instanceCount = q === 'hemat' ? 12000 : 34000;
+      /* Hemat: batang pohon sekitar tidak ikut pass bayangan (bayangan tajuk tetap ada) */
+      for (const c of chunks) if (c.lod === 0 && !c.bush) c.meshes[0].castShadow = !lowDetail.v;
+      grass.geo.instanceCount = q === 'hemat' ? 8000 : 34000;
     },
     update(P, T, dt) {
       windU.uTime.value = T;
       grass.u.uPlayer.value.set(P.x, P.y, P.z);
-      const cull = lowDetail.v ? 85 : 130, lodD = lowDetail.v ? 28 : 42, thin = lowDetail.v ? 0.55 : 1;
+      const cull = lowDetail.v ? 60 : 130, lodD = lowDetail.v ? 17 : 42, thin = lowDetail.v ? 0.45 : 1;
       for (const c of chunks) {
         const d = Math.hypot(P.x - c.cx, P.z - c.cz) - c.half;
         let vis;

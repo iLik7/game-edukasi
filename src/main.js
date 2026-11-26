@@ -78,7 +78,7 @@ function collide(p){
 const veg=await buildVegetation({scene:world,heroes:HEROES,addObs:addObs,quality:quality,progress:function(f,t){loadProgress(0.1+f*0.6,t)}});
 const heroObjs=veg.heroObjs,heroHits=veg.heroHits;
 
-const P={x:0,z:2,y:0,face:Math.PI,phase:0};
+const P={x:0,z:2,y:0,face:Math.PI,phase:0,jh:0,jv:0};
 P.y=heightAt(P.x,P.z);
 const cam={yaw:0,pitch:-0.04,fov:66};
 
@@ -131,7 +131,7 @@ function renderInfo(){
     return;
   }
   const L=LAYERS.find(function(x){return x.id===selected});
-  el.innerHTML='<h2 style="color:'+L.ui+'">'+L.name+'</h2><p class="sci">'+L.sci+'</p><h3>Apa ini</h3><p>'+L.what+'</p><h3>Fungsi</h3><p>'+L.fn+'</p><h3>Tahukah kamu</h3><p>'+L.fact+'</p>';
+  el.innerHTML='<h2 style="color:'+L.ui+'">'+L.name+'</h2><p class="sci">'+L.sci+'</p><h3>Apa ini</h3><p>'+L.what+'</p><h3>Fungsi</h3><p>'+L.fn+'</p><h3>Tahukah kamu</h3><p>'+L.fact+'</p>'+(H.notes&&H.notes[L.id]?'<h3>Pada '+H.short+'</h3><p>'+H.notes[L.id]+'</p>':'');
 }
 function select(id){
   selected=id;
@@ -145,7 +145,7 @@ function fadeTo(fn){
 }
 function enterDissect(i){
   fadeTo(function(){
-    curHero=i;const H=HEROES[i];
+    curHero=i;const H=HEROES[i];D.setSpecies(Object.assign({id:H.id},H.wood));
     mode='dissect';document.body.classList.add('dissect');
     $('#dName').textContent=H.name;$('#dSci').textContent='Penampang batang · '+H.sci;
     dState.yaw=0;dState.pitch=0.5;dState.dist=window.innerWidth<760?19:14;dState.user=false;
@@ -180,28 +180,30 @@ let qz=null;
 function shuffle(a,r){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a}
 function startQuiz(){
   const r=Math.random;
-  qz={i:0,score:0,gain:0,order:shuffle(QUIZ.map(function(_,i){return i}),r),done:false};
+  const pool=QUIZ.filter(function(q){return !q.sp||S.trees[q.sp]});
+  const set=shuffle(pool.slice(),r).slice(0,6);
+  qz={i:0,score:0,gain:0,set:set,order:set.map(function(_,i){return i}),done:false};
   renderQ();
 }
 function renderQ(){
-  const q=QUIZ[qz.order[qz.i]];
+  const q=qz.set[qz.order[qz.i]];
   if(!qz.optOrder||qz.optOrder.q!==q.id)qz.optOrder={q:q.id,o:shuffle(q.o.map(function(_,i){return i}),Math.random)};
   const opts=qz.optOrder.o.map(function(oi,k){return '<button type="button" class="opt" data-o="'+oi+'">'+q.o[oi]+'</button>'}).join('');
-  openModal('<div class="head"><div><p style="color:var(--muted);font-size:13px;font-weight:800">Soal '+(qz.i+1)+' dari '+QUIZ.length+'</p></div><button class="x" type="button" data-close aria-label="Tutup">&times;</button></div><p class="q">'+q.q+'</p><div class="opts" id="opts">'+opts+'</div><div id="qfb"></div>');
+  openModal('<div class="head"><div><p style="color:var(--muted);font-size:13px;font-weight:800">Soal '+(qz.i+1)+' dari '+qz.set.length+'</p></div><button class="x" type="button" data-close aria-label="Tutup">&times;</button></div><p class="q">'+q.q+'</p><div class="opts" id="opts">'+opts+'</div><div id="qfb"></div>');
 }
 function answerQ(oi){
-  const q=QUIZ[qz.order[qz.i]],ok=oi===q.a;
+  const q=qz.set[qz.order[qz.i]],ok=oi===q.a;
   document.querySelectorAll('#opts .opt').forEach(function(b){
     const v=+b.dataset.o;b.disabled=true;
     if(v===q.a)b.classList.add('ok');else if(v===oi)b.classList.add('bad');
   });
   if(ok){qz.score++;if(!S.qdone[q.id]){S.qdone[q.id]=1;qz.gain+=15;S.xp+=15;updProfile();save()}}
-  const last=qz.i>=QUIZ.length-1;
+  const last=qz.i>=qz.set.length-1;
   $('#qfb').innerHTML='<div class="exp"><b>'+(ok?'Benar. ':'Belum tepat. ')+'</b>'+q.e+'</div><div class="actions"><button type="button" class="btn primary" id="qnext">'+(last?'Lihat hasil':'Lanjut')+'</button></div>';
 }
 function nextQ(){
-  if(qz.i>=QUIZ.length-1){
-    openModal('<div class="head"><h2>Hasil kuis</h2><button class="x" type="button" data-close aria-label="Tutup">&times;</button></div><p class="q">Skor '+qz.score+' dari '+QUIZ.length+'</p><p style="color:var(--muted)">'+(qz.gain?'Kamu mendapat tambahan '+qz.gain+' XP dari soal yang baru benar pertama kali.':'XP hanya diberikan saat soal pertama kali dijawab benar.')+'</p><div class="actions"><button type="button" class="btn primary" id="qagain">Ulangi</button><button type="button" class="btn" data-close>Tutup</button></div>');
+  if(qz.i>=qz.set.length-1){
+    openModal('<div class="head"><h2>Hasil kuis</h2><button class="x" type="button" data-close aria-label="Tutup">&times;</button></div><p class="q">Skor '+qz.score+' dari '+qz.set.length+'</p><p style="color:var(--muted)">'+(qz.gain?'Kamu mendapat tambahan '+qz.gain+' XP dari soal yang baru benar pertama kali.':'XP hanya diberikan saat soal pertama kali dijawab benar.')+'</p><div class="actions"><button type="button" class="btn primary" id="qagain">Ulangi</button><button type="button" class="btn" data-close>Tutup</button></div>');
     return;
   }
   qz.i++;renderQ();
@@ -226,7 +228,7 @@ $('#tipX').addEventListener('click',hideTip);
 setTimeout(hideTip,20000);
 
 /* ================= input ================= */
-let keys={};
+let keys={},jumpReq=false;
 const joy={x:0,y:0};
 if(isTouch)document.body.classList.add('touch');
 window.addEventListener('keydown',function(e){
@@ -237,6 +239,7 @@ window.addEventListener('keydown',function(e){
   if(mode==='world'){
     if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','shift'].indexOf(k)>=0){keys[k]=true;e.preventDefault()}
     if(k==='e')tryInteract();
+    if(k===' '){jumpReq=true;e.preventDefault()}
     if(k==='j')openJournal();
   }
 });
@@ -328,6 +331,7 @@ canvas.addEventListener('wheel',function(e){
   if(mode==='dissect'){dState.user=true;dState.dist=clamp(dState.dist*f,6,24)}
 },{passive:false});
 $('#act').addEventListener('click',tryInteract);
+$('#jump').addEventListener('pointerdown',function(e){e.preventDefault();jumpReq=true});
 
 
 /* ================= loop ================= */
@@ -353,21 +357,26 @@ function updWorld(dt){
     P.phase+=speedNow*dt*1.25;
   }
   const gy=heightAt(P.x,P.z);P.y+=(gy-P.y)*Math.min(1,dt*14);
+  if(jumpReq&&P.jh<=0.001){P.jv=6.4}
+  jumpReq=false;
+  if(P.jh>0||P.jv>0){P.jv-=20*dt;P.jh=Math.max(0,P.jh+P.jv*dt);if(P.jh===0)P.jv=0}
 
   /* kamera orang pertama: tinggi mata 1,68 m, goyangan langkah halus, FOV melebar saat lari */
   const mv=Math.min(1,speedNow/4.6);
   const bob=Math.sin(P.phase*2)*0.032*mv,sway=Math.cos(P.phase)*0.018*mv;
-  wcam.position.set(P.x+Math.cos(cam.yaw)*sway,P.y+1.68+bob,P.z-Math.sin(cam.yaw)*sway);
+  wcam.position.set(P.x+Math.cos(cam.yaw)*sway,P.y+1.68+bob+P.jh,P.z-Math.sin(cam.yaw)*sway);
   wcam.rotation.set(cam.pitch,cam.yaw,0);
   const tf=66+(speedNow>6?5:0);cam.fov+=(tf-cam.fov)*Math.min(1,dt*5);
   if(Math.abs(wcam.fov-cam.fov)>0.02){wcam.fov=cam.fov;wcam.updateProjectionMatrix()}
 
   /* markers, tags, prompt */
+  let bestD=1e9,bestI=-1;
   heroObjs.forEach(function(o,i){
     const H=HEROES[i];
     o.mk.rotation.y+=dt*1.6;o.mk.position.y=o.y+H.top+2.2+Math.sin(T*2+i)*0.3;
     const s=1+0.1*Math.sin(T*3+i);o.ring.scale.set(s,s,s);
     const d=Math.hypot(P.x-H.x,P.z-H.z),tg=tags[i];
+    if(d<bestD){bestD=d;bestI=i}
     tv.set(H.x,o.y+H.top*0.6,H.z).project(wcam);
     if(tv.z<1&&d<60&&d>11){
       const w=window.innerWidth,h=window.innerHeight;
@@ -377,13 +386,24 @@ function updWorld(dt){
       tg.innerHTML=H.name+'<small>'+Math.round(d)+' m</small>';
     }else tg.style.display='none';
   });
+  /* prompt ala GTA: menempel di batang pohon terdekat */
+  const act=$('#act');
+  if(bestD<9&&!modalOpen()){
+    const H=HEROES[bestI],o=heroObjs[bestI];
+    tv.set(H.x,o.y+1.7,H.z).project(wcam);
+    const w=window.innerWidth,h=window.innerHeight;
+    let ax=(tv.x*0.5+0.5)*w,ay=(-tv.y*0.5+0.5)*h;
+    if(tv.z>1){ax=w*0.5;ay=h*0.62}
+    ax=clamp(ax,110,w-110);ay=clamp(ay,100,h-170);
+    act.style.transform='translate('+ax+'px,'+ay+'px) translate(-50%,-50%)';
+    if(act.dataset.i!==String(bestI)){act.dataset.i=bestI;$('#actName').textContent=H.name}
+    act.classList.add('on');
+  }else act.classList.remove('on');
   nearAcc+=dt;
   if(nearAcc>0.2){
     nearAcc=0;
     const n=nearestHero(),H=HEROES[n.i];
     $('#near').textContent='Terdekat: '+H.name+', '+Math.round(n.d)+' m';
-    const act=$('#act');
-    if(n.d<9){act.classList.add('on');act.textContent='Bedah '+H.name}else act.classList.remove('on');
   }
 }
 function resize(){
@@ -405,7 +425,7 @@ sky.update(tDay,T,0.016,{x:P.x,y:P.y+1.6,z:P.z});setClock();
 $('#loading').classList.add('done');
 setTimeout(function(){$('#loading').style.display='none'},700);
 
-if(DEBUG)window.__hi={enter:enterDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},getMode:function(){return mode}};
+if(DEBUG)window.__hi={enter:enterDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},look:function(i,d){const H=HEROES[i];d=d||11;const L=Math.hypot(H.x,H.z-2)||1;P.x=H.x+(0-H.x)/L*d;P.z=H.z+(2-H.z)/L*d;P.y=heightAt(P.x,P.z);cam.yaw=Math.atan2(P.x-H.x,P.z-H.z);cam.pitch=0.22},getMode:function(){return mode}};
 
 let last=performance.now(),paused=false;
 function step(dt){

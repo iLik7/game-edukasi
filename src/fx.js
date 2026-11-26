@@ -32,7 +32,11 @@ export function createFX(renderer, scene, camera, opts = {}) {
   return {
     composer, gtao, bloom,
     setSize(w, h, pr) { composer.setPixelRatio(pr); composer.setSize(w, h); },
-    setQuality(q) { gtao.enabled = bloom.enabled = q === 'tinggi'; },
+    setQuality(q) {
+      gtao.enabled = bloom.enabled = q === 'tinggi';
+      const n = q === 'tinggi' ? 4 : 2; /* MSAA lebih ringan di mode Hemat */
+      for (const t of [composer.renderTarget1, composer.renderTarget2]) if (t.samples !== n) { t.samples = n; t.dispose(); }
+    },
     render(dt) { composer.render(dt); },
     dispose() { composer.dispose && composer.dispose(); },
   };

@@ -1,10 +1,22 @@
 import * as THREE from 'three';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import { TAU, clamp, lerp, smooth, rng } from './util.js';
-import barkColorUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/oak_color_1k.jpg';
-import barkNormalUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/oak_normal_1k.jpg';
-import barkRoughUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/oak_roughness_1k.jpg';
-import barkAoUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/oak_ao_1k.jpg';
+import oakColorUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/oak_color_1k.jpg';
+import oakNormalUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/oak_normal_1k.jpg';
+import oakRoughnessUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/oak_roughness_1k.jpg';
+import oakAoUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/oak_ao_1k.jpg';
+import pineColorUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/pine_color_1k.jpg';
+import pineNormalUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/pine_normal_1k.jpg';
+import pineRoughnessUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/pine_roughness_1k.jpg';
+import pineAoUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/pine_ao_1k.jpg';
+import birchColorUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/birch_color_1k.jpg';
+import birchNormalUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/birch_normal_1k.jpg';
+import birchRoughnessUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/birch_roughness_1k.jpg';
+import birchAoUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/birch_ao_1k.jpg';
+import willowColorUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/willow_color_1k.jpg';
+import willowNormalUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/willow_normal_1k.jpg';
+import willowRoughnessUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/willow_roughness_1k.jpg';
+import willowAoUrl from '../node_modules/@dgreenheck/ez-tree/src/lib/assets/bark/willow_ao_1k.jpg';
 import dirtUrl from '../node_modules/@dgreenheck/ez-tree/src/app/public/dirt_color.jpg';
 import dirtNUrl from '../node_modules/@dgreenheck/ez-tree/src/app/public/dirt_normal.jpg';
 
@@ -30,47 +42,44 @@ function fbm(x, y, oct = 3, px = 256, py = 256) {
 const mix3 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
 
 /* ---------- tekstur penampang (ujung batang): cincin tahun, jari-jari empulur, lapisan ---------- */
-function endGrainTexture(N, LAYERS) {
+function endGrainTexture(N, LAYERS, W) {
   const c = document.createElement('canvas'); c.width = c.height = N;
   const ctx = c.getContext('2d'), img = ctx.createImageData(N, N), d = img.data;
   const R = Object.fromEntries(LAYERS.map((L) => [L.id, L]));
-  const bk1 = [0.22, 0.135, 0.085], bk2 = [0.10, 0.065, 0.045];
-  const flo = [0.83, 0.75, 0.50], cam = [0.56, 0.76, 0.33];
-  const xyE = [0.93, 0.79, 0.52], xyL = [0.70, 0.50, 0.30];
-  const heE = [0.64, 0.38, 0.20], heL = [0.36, 0.19, 0.095];
-  const pith = [0.94, 0.89, 0.76];
+  const bk1 = W.barkA, bk2 = W.barkB, flo = W.cortex, cam = [0.56, 0.76, 0.33];
   const b1 = R.floem.ro, b2 = R.kambium.ro, b3 = R.xilem.ro, b4 = R.teras.ro, b5 = R.empulur.ro;
+  const dens = W.rings, ct = W.contrast;
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
     const x = (i / N - 0.5) * SPAN, y = (0.5 - j / N) * SPAN;
     const r = Math.hypot(x, y), th = Math.atan2(y, x);
     let col;
     const wob = (fbm(x * 1.4 + 3, y * 1.4 + 7, 3) - 0.35) * 0.09 + Math.sin(th * 3 + 1.2) * 0.012;
     const rw = r + wob;
-    if (r >= b1) { /* kulit luar: retak, serat radial */
+    if (r >= b1) {
       const n = fbm(th * 9, r * 7, 3), crack = smooth(0.52, 0.72, fbm(th * 16 + 5, r * 3.2, 3));
       col = mix3(bk1, bk2, n * 0.9 + crack * 0.7); const f = 0.82 + 0.3 * vn(th * 70, r * 9); col = col.map((v) => v * f);
-    } else if (r >= b2) { /* floem: serat halus radial */
-      const s = vn(th * 90, r * 14), s2 = vn(th * 28, r * 5);
-      col = flo.map((v) => v * (0.86 + 0.2 * s) * (0.95 + 0.1 * s2));
-    } else if (r >= b3) { /* kambium: hijau pucat, licin */
+    } else if (r >= b2) {
+      const s1 = vn(th * 90, r * 14), s2 = vn(th * 28, r * 5);
+      col = flo.map((v) => v * (0.86 + 0.2 * s1) * (0.95 + 0.1 * s2));
+    } else if (r >= b3) {
       col = cam.map((v) => v * (0.94 + 0.1 * vn(th * 50, r * 40)));
-    } else if (r >= b5) { /* xilem + kayu teras: cincin tahun */
+    } else if (r >= b5) {
       const heart = r < b4;
-      const q = (rw - b5) * 17.5, f = q - Math.floor(q), ring = Math.floor(q);
+      const q = (rw - b5) * dens, f = q - Math.floor(q), ring = Math.floor(q);
       const lw = smooth(0.5, 0.93, f) * (1 - smooth(0.965, 1.0, f));
-      const tone = 0.93 + 0.1 * (((ring * 7919) % 13) / 13 - 0.5) * 2;
-      const rays = Math.pow(vn(th * 60, r * 1.6), 3) * 0.1;
+      const tone = 0.95 + 0.08 * (((ring * 7919) % 13) / 13 - 0.5) * 2;
+      const rays = Math.pow(vn(th * 60, r * 1.6), 3) * W.rays;
       const grain = (vn(x * 45, y * 45) - 0.5) * 0.05;
-      const E = heart ? heE : xyE, L = heart ? heL : xyL;
-      col = mix3(E, L, lw * 0.85).map((v) => (v * tone + rays + grain));
-      if (heart) { /* retak radial halus dekat pusat */
-        const ck = smooth(0.78, 0.9, vn(th * 5 + 9, r * 0.4)) * smooth(1.0, 0.4, r);
-        col = col.map((v) => v * (1 - ck * 0.35));
-      }
-    } else { /* empulur */
-      const t = r / b5; col = pith.map((v) => v * (0.9 + 0.14 * vn(x * 80, y * 80)) * (1 - 0.35 * (1 - t) * (1 - t)));
+      const E = heart ? W.heartE : W.sapE, L = heart ? W.heartL : W.sapL;
+      col = mix3(E, L, lw * ct * 2.2).map((v) => (v * tone + rays + grain));
+      const pv = vn(x * 150 + 11, y * 150 + 5);
+      if (W.pores === 'ring') { if (f < 0.16 && pv > 0.62) col = col.map((v) => v * 0.55); }       /* pori besar di awal musim */
+      else if (W.pores === 'diffuse') { if (pv > 0.87) col = col.map((v) => v * 0.78); }            /* pori tersebar */
+      else if (W.pores === 'resin') { if (vn(x * 55 + 3, y * 55 + 9) > 0.972) col = [0.55, 0.34, 0.14]; } /* saluran resin */
+      if (heart) { const ck = smooth(0.78, 0.9, vn(th * 5 + 9, r * 0.4)) * smooth(1.0, 0.4, r); col = col.map((v) => v * (1 - ck * 0.35)); }
+    } else {
+      const t = r / b5; col = W.pith.map((v) => v * (0.9 + 0.14 * vn(x * 80, y * 80)) * (1 - 0.35 * (1 - t) * (1 - t)));
     }
-    /* garis batas antarlapisan */
     const edge = Math.min(Math.abs(r - b1), Math.abs(r - b2), Math.abs(r - b3), Math.abs(r - b4));
     const line = 1 - 0.38 * (1 - smooth(0.0, 0.012, edge));
     const k = (j * N + i) * 4;
@@ -79,7 +88,7 @@ function endGrainTexture(N, LAYERS) {
   ctx.putImageData(img, 0, 0);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter;
-  t.repeat.set(1 / SPAN, 1 / SPAN); t.offset.set(0.5, 0.5); /* uv diberikan dalam satuan dunia */
+  t.repeat.set(1 / SPAN, 1 / SPAN); t.offset.set(0.5, 0.5);
   return t;
 }
 
@@ -166,30 +175,57 @@ export function buildDissect(renderer, LAYERS) {
   scene.add(key);
   const rim = new THREE.DirectionalLight(0x8fd0ff, 1.3); rim.position.set(-6, 3, -5); scene.add(rim);
 
-  const cap = endGrainTexture(1280, LAYERS);
-  const barkMap = loadTex(barkColorUrl, true, 1 / 2.4, 1 / 2.4), barkN = loadTex(barkNormalUrl, false, 1 / 2.4, 1 / 2.4);
-  const barkR = loadTex(barkRoughUrl, false, 1 / 2.4, 1 / 2.4), barkAo = loadTex(barkAoUrl, false, 1 / 2.4, 1 / 2.4);
-  const sideDef = {
-    floem: [[0.84, 0.76, 0.52], [0.62, 0.52, 0.30], { fu: 64, band: 0.12 }],
-    kambium: [[0.56, 0.76, 0.34], [0.42, 0.62, 0.24], { fu: 64, band: 0.05 }],
-    xilem: [[0.92, 0.78, 0.52], [0.68, 0.50, 0.30], { fu: 40, band: 0.3 }],
-    teras: [[0.66, 0.40, 0.22], [0.36, 0.20, 0.10], { fu: 40, band: 0.35 }],
-    empulur: [[0.94, 0.89, 0.77], [0.80, 0.72, 0.58], { fu: 90, band: 0.05 }],
+  const TOUCH = matchMedia('(pointer:coarse)').matches;
+  const N_CAP = TOUCH ? 1024 : 1280;
+  const BARK_URLS = {
+    oak: [oakColorUrl, oakNormalUrl, oakRoughnessUrl, oakAoUrl], pine: [pineColorUrl, pineNormalUrl, pineRoughnessUrl, pineAoUrl],
+    birch: [birchColorUrl, birchNormalUrl, birchRoughnessUrl, birchAoUrl], willow: [willowColorUrl, willowNormalUrl, willowRoughnessUrl, willowAoUrl],
   };
+  const barkCache = {}, spCache = {};
+  const barkSet = (t) => barkCache[t] || (barkCache[t] = BARK_URLS[t].map((u, i) => loadTex(u, i === 0, 1 / 2.4, 1 / 2.4)));
+  /* tekstur dibuat malas per spesies lalu disimpan: hemat memori & waktu muat di HP */
+  function speciesTex(W) {
+    const key = W.id;
+    if (spCache[key]) return spCache[key];
+    const tc = new THREE.Color(W.barkTint), t = [tc.r, tc.g, tc.b];
+    const w = { ...W, barkA: t.map((v) => v * 0.5), barkB: t.map((v) => v * 0.95) };
+    const side = {
+      floem: grainTexture(W.cortex, W.cortex.map((v) => v * 0.72), { fu: 64, band: 0.12 }),
+      kambium: grainTexture([0.56, 0.76, 0.34], [0.42, 0.62, 0.24], { fu: 64, band: 0.05 }),
+      xilem: grainTexture(W.sapE, W.sapL, { fu: 40, band: 0.3 }),
+      teras: grainTexture(W.heartE, W.heartL, { fu: 40, band: 0.35 + W.contrast * 0.3 }),
+      empulur: grainTexture(W.pith, W.pith.map((v) => v * 0.85), { fu: 90, band: 0.05 }),
+    };
+    return (spCache[key] = { cap: endGrainTexture(N_CAP, LAYERS, w), side, bark: barkSet(W.bark), tint: new THREE.Color(W.barkTint) });
+  }
 
   const layerMeshes = [], layerMat = {};
   LAYERS.forEach((L) => {
     const base = new THREE.Color(L.col);
-    const capMat = new THREE.MeshStandardMaterial({ map: cap, bumpMap: cap, bumpScale: 0.6, roughness: L.id === 'kambium' ? 0.5 : 0.78, metalness: 0 });
-    let sideMat;
-    if (L.id === 'kulit') sideMat = new THREE.MeshStandardMaterial({ map: barkMap, normalMap: barkN, roughnessMap: barkR, aoMap: barkAo, color: new THREE.Color(0xc9b8a8), roughness: 1, metalness: 0 });
-    else { const [a, b, o] = sideDef[L.id]; sideMat = new THREE.MeshStandardMaterial({ map: grainTexture(a, b, o), roughness: L.id === 'kambium' ? 0.5 : 0.78, metalness: 0 }); }
+    const capMat = new THREE.MeshStandardMaterial({ bumpScale: 0.6, roughness: L.id === 'kambium' ? 0.5 : 0.78, metalness: 0 });
+    const sideMat = L.id === 'kulit' ? new THREE.MeshStandardMaterial({ roughness: 1, metalness: 0 })
+      : new THREE.MeshStandardMaterial({ roughness: L.id === 'kambium' ? 0.5 : 0.78, metalness: 0 });
     const m = new THREE.Mesh(ringGeo(L.ro, L.ri), [capMat, sideMat]);
     m.castShadow = true; m.receiveShadow = true; m.userData.layer = L.id; scene.add(m);
-    if (m.geometry.attributes.uv && L.id === 'kulit') m.geometry.setAttribute('uv1', m.geometry.attributes.uv); /* aoMap */
+    if (L.id === 'kulit') m.geometry.setAttribute('uv1', m.geometry.attributes.uv); /* aoMap */
     layerMeshes.push(m);
     layerMat[L.id] = { mats: [capMat, sideMat], base: new THREE.Color(1, 1, 1), emi: base, k: 0 };
   });
+  let curSp = null;
+  function setSpecies(W) {
+    if (curSp === W.id) return; curSp = W.id;
+    const T = speciesTex(W);
+    LAYERS.forEach((L) => {
+      const [capMat, sideMat] = layerMat[L.id].mats;
+      capMat.map = capMat.bumpMap = T.cap; capMat.needsUpdate = true;
+      if (L.id === 'kulit') {
+        const [c, n, r, ao] = T.bark;
+        sideMat.map = c; sideMat.normalMap = n; sideMat.roughnessMap = r; sideMat.aoMap = ao; sideMat.userData.tint = T.tint;
+        layerMat[L.id].tint = T.tint.clone().lerp(new THREE.Color(1, 1, 1), 0.25);
+      } else sideMat.map = T.side[L.id];
+      sideMat.needsUpdate = true;
+    });
+  }
 
   /* alas tanah */
   const dirt = loadTex(dirtUrl, true, 2.2, 2.2), dirtN = loadTex(dirtNUrl, false, 2.2, 2.2);
@@ -222,7 +258,7 @@ export function buildDissect(renderer, LAYERS) {
   const state = { yaw: 0, pitch: 0.5, dist: 14, user: false, sun: 0.65 };
   const dimC = new THREE.Color(0.2, 0.26, 0.24);
   return {
-    scene, camera, layerMeshes, layerMat, waterFlow, sugarFlow, state,
+    scene, camera, layerMeshes, layerMat, waterFlow, sugarFlow, state, setSpecies,
     update(dt, T, selected, hovered) {
       if (!state.user) state.yaw = 0.3 * Math.sin(T * 0.45);
       const cp = Math.cos(state.pitch), sp = Math.sin(state.pitch);
@@ -235,7 +271,7 @@ export function buildDissect(renderer, LAYERS) {
         const e = layerMat[L.id], tk = (selected && selected !== L.id) ? 0.7 : 0;
         e.k += (tk - e.k) * Math.min(1, dt * 10);
         const glow = selected === L.id ? 0.12 : (hovered === L.id ? 0.07 : 0);
-        for (const m of e.mats) { m.color.copy(e.base).lerp(dimC, e.k); m.emissive.copy(e.emi).multiplyScalar(glow); }
+        e.mats.forEach((m, i) => { m.color.copy(e.base); if (i === 1 && e.tint) m.color.multiply(e.tint); m.color.lerp(dimC, e.k); m.emissive.copy(e.emi).multiplyScalar(glow); });
       });
     },
   };
