@@ -87,19 +87,16 @@ function leafMaterial(map, tint) {
 /* ---------- rumput GPU: ratusan ribu bilah, hanya di sekitar pemain ---------- */
 function tuftGeometry() {
   const r = rng(3), pos = [], col = [], nrm = [], idx = [];
-  const base = new THREE.Color().setRGB(0.012, 0.035, 0.006), tip = new THREE.Color().setRGB(0.12, 0.22, 0.045), mid = new THREE.Color();
-  const NB = 5;
+  const base = new THREE.Color().setRGB(0.010, 0.030, 0.005), tip = new THREE.Color().setRGB(0.13, 0.23, 0.05);
+  const NB = 9;
   for (let b = 0; b < NB; b++) {
-    const a = b / NB * TAU + r() * 0.8, rr = 0.02 + r() * 0.08, cx = Math.cos(a) * rr, cz = Math.sin(a) * rr;
-    const h = 0.22 + r() * 0.3, w = 0.016 + r() * 0.012, lean = (r() - 0.5) * 0.3, face = r() * TAU;
+    const a = b / NB * TAU + r() * 0.7, rr = 0.02 + r() * 0.09, cx = Math.cos(a) * rr, cz = Math.sin(a) * rr;
+    const h = 0.13 + r() * 0.26, w = 0.011 + r() * 0.010, lean = (r() - 0.5) * 0.22, face = r() * TAU;
     const dx = Math.cos(face), dz = Math.sin(face), px = -dz, pz = dx, k = pos.length / 3;
     const P = (x, y, z, c) => { pos.push(x, y, z); col.push(c.r, c.g, c.b); nrm.push(0, 1, 0); };
     P(cx - px * w, 0, cz - pz * w, base); P(cx + px * w, 0, cz + pz * w, base);
-    mid.copy(base).lerp(tip, 0.55);
-    P(cx - px * w * 0.7 + dx * lean * 0.35, h * 0.55, cz - pz * w * 0.7 + dz * lean * 0.35, mid);
-    P(cx + px * w * 0.7 + dx * lean * 0.35, h * 0.55, cz + pz * w * 0.7 + dz * lean * 0.35, mid);
     P(cx + dx * lean, h, cz + dz * lean, tip);
-    idx.push(k, k + 1, k + 3, k, k + 3, k + 2, k + 2, k + 3, k + 4);
+    idx.push(k, k + 1, k + 2);
   }
   const g = new THREE.InstancedBufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
@@ -132,7 +129,7 @@ function buildGrass(scene, maxCount) {
         float fade = 1.0 - smoothstep(uR * 0.5, uR, length(rel));
         float ok = step(uWater + 0.55, gh) * smoothstep(uPathW * 0.85, uPathW * 1.6, tPath(wp)) * step(9.0, length(wp) + 14.0);
         float clump = 0.5 + 0.5 * sin(wp.x * 0.11) * sin(wp.y * 0.13 + 1.0);
-        float sc = aOff.w * fade * ok * mix(0.55, 1.15, clump);
+        float sc = aOff.w * fade * ok * mix(0.6, 1.2, clump);
         float ang = aOff.z * 6.2831;
         mat2 Rm = mat2(cos(ang), -sin(ang), sin(ang), cos(ang));
         vec3 transformed = position;
@@ -166,7 +163,7 @@ function chunkInstances(scene, variant, spots, chunks, size, lod) {
     const [kx, kz] = k.split(',').map(Number);
     const bark = new THREE.InstancedMesh(variant.barkGeo, variant.barkMat, arr.length);
     const leaf = new THREE.InstancedMesh(variant.leafGeo, variant.leafMat, arr.length);
-    leaf.customDepthMaterial = variant.depthMat;
+    leaf.customDepthMaterial = variant.depthMat; leaf.userData.noAO = true;
     arr.forEach((s, i) => {
       e.set(0, s.r * TAU, 0); q.setFromEuler(e); p.set(s.x, s.y - 0.1, s.z);
       const f = variant.scale * s.s; sc.set(f, f, f * (0.92 + s.c * 0.16)); m4.compose(p, q, sc);
@@ -267,14 +264,16 @@ export async function buildVegetation({ scene, heroes, addObs, progress, quality
     const g = new THREE.Group(), y = heightAt(H.x, H.z);
     g.position.set(H.x, y - 0.1, H.z); g.rotation.y = i * 2.1;
     const bark = new THREE.Mesh(v.barkGeo, v.barkMat), leaf = new THREE.Mesh(v.leafGeo, v.leafMat);
-    leaf.customDepthMaterial = v.depthMat;
+    leaf.customDepthMaterial = v.depthMat; leaf.userData.noAO = true;
     for (const m of [bark, leaf]) { m.castShadow = true; m.receiveShadow = true; m.scale.setScalar(v.scale); g.add(m); }
     scene.add(g);
     H.top = v.height; /* dipakai penanda dan kolom klik */
     const mk = new THREE.Mesh(new THREE.OctahedronGeometry(0.5, 0), new THREE.MeshStandardMaterial({ color: 0xffd35a, emissive: 0xffa800, emissiveIntensity: 2.2, roughness: 0.3 }));
     mk.position.set(H.x, y + v.height + 2.2, H.z); mk.userData.noAO = true; scene.add(mk);
-    const ring = new THREE.Mesh(new THREE.RingGeometry(1.9, 2.15, 48), new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.7, 0.5), transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
-    ring.rotation.x = -Math.PI / 2; ring.position.set(H.x, y + 0.2, H.z); ring.userData.noAO = true; scene.add(ring);
+    const rg = new THREE.RingGeometry(1.9, 2.15, 64, 1); rg.rotateX(-Math.PI / 2);
+    { const pp = rg.attributes.position; for (let q = 0; q < pp.count; q++) pp.setY(q, heightAt(H.x + pp.getX(q), H.z + pp.getZ(q)) - y + 0.14); }
+    const ring = new THREE.Mesh(rg, new THREE.MeshBasicMaterial({ color: new THREE.Color(2.2, 1.7, 0.5), transparent: true, opacity: 0.8, side: THREE.DoubleSide, depthWrite: false }));
+    ring.position.set(H.x, y, H.z); ring.userData.noAO = true; scene.add(ring);
     const hit = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, v.height + 2, 8), new THREE.MeshBasicMaterial({ visible: false }));
     hit.position.set(H.x, y + (v.height + 2) / 2, H.z); hit.userData.hero = i; scene.add(hit);
     heroHits.push(hit); heroObjs.push({ g, mk, ring, y });
@@ -283,8 +282,8 @@ export async function buildVegetation({ scene, heroes, addObs, progress, quality
   }
 
   /* rumput */
-  const grass = buildGrass(scene, quality === 'hemat' ? 9000 : 26000);
-  grass.maxCount = 26000;
+  const grass = buildGrass(scene, quality === 'hemat' ? 12000 : 34000);
+  grass.maxCount = 34000;
 
   /* batu dan bunga */
   await step('Menata batu dan bunga…', 0.78);
@@ -336,7 +335,7 @@ export async function buildVegetation({ scene, heroes, addObs, progress, quality
     heroObjs, heroHits, grass, chunks, info,
     setQuality(q) {
       lowDetail.v = q === 'hemat';
-      grass.geo.instanceCount = q === 'hemat' ? 9000 : 26000;
+      grass.geo.instanceCount = q === 'hemat' ? 12000 : 34000;
     },
     update(P, T, dt) {
       windU.uTime.value = T;

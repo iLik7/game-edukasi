@@ -219,7 +219,7 @@ export function buildDissect(renderer, LAYERS) {
     pos.needsUpdate = true;
   }
 
-  const state = { yaw: 0, pitch: 0.4, dist: 14, user: false, sun: 0.65 };
+  const state = { yaw: 0, pitch: 0.5, dist: 14, user: false, sun: 0.65 };
   const dimC = new THREE.Color(0.2, 0.26, 0.24);
   return {
     scene, camera, layerMeshes, layerMat, waterFlow, sugarFlow, state,

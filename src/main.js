@@ -148,7 +148,7 @@ function enterDissect(i){
     curHero=i;const H=HEROES[i];
     mode='dissect';document.body.classList.add('dissect');
     $('#dName').textContent=H.name;$('#dSci').textContent='Penampang batang · '+H.sci;
-    dState.yaw=0;dState.pitch=0.4;dState.dist=window.innerWidth<760?19:14;dState.user=false;
+    dState.yaw=0;dState.pitch=0.5;dState.dist=window.innerWidth<760?19:14;dState.user=false;
     if(!S.trees[H.id]){S.trees[H.id]=1;award(10,'pohon baru')}
     selected=null;renderChips();renderInfo();sunCaption();updProfile();resize();
     keys={};joy.x=0;joy.y=0;
@@ -421,9 +421,16 @@ function step(dt){
     fxD.render(dt);
   }
 }
+let perfAcc=0,perfN=0,perfT=0,autoDone=false;
+function perfWatch(dt){
+  if(autoDone||quality!=='tinggi'||mode!=='world'||DEBUG)return;
+  perfT+=dt;if(perfT<5)return;
+  perfAcc+=dt;perfN++;
+  if(perfAcc>=4){autoDone=true;if(perfAcc/perfN>0.034){applyQuality('hemat');toast('Grafik diturunkan ke Hemat agar tetap lancar. Ganti lewat tombol Grafik.')}}
+}
 function frame(now){
   const dt=Math.min(0.05,(now-last)/1000);last=now;
-  if(!paused)step(dt);
+  if(!paused){step(dt);perfWatch(dt)}
   requestAnimationFrame(frame);
 }
 if(DEBUG){window.__hi.pause=function(v){paused=v!==false};window.__hi.step=step}

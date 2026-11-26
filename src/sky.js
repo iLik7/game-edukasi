@@ -127,7 +127,7 @@ export function createSky(scene, renderer) {
       U.uBelow.value.copy(U.uHorizon.value);
 
       scene.fog.color.copy(U.uHorizon.value);
-      scene.environmentIntensity = 0.3 + 0.95 * day;
+      scene.environmentIntensity = 0.42 + 0.85 * day;
 
       const cx = focus.x, cy = focus.y, cz = focus.z;
       dome.position.set(cx, cy, cz);
@@ -141,7 +141,7 @@ export function createSky(scene, renderer) {
       sun.intensity = 6.0 * smooth(-0.02, 0.28, elev);
       sun.color.setRGB(1.0, 0.72 + 0.28 * smooth(0, 0.5, elev), 0.5 + 0.5 * smooth(0, 0.6, elev));
       sun.castShadow = elev > 0.01;
-      moonL.intensity = 0.55 * (1 - day);
+      moonL.intensity = 0.95 * (1 - day);
       moonL.position.set(cx - sunDir.x * 100, cy - sunDir.y * 100 + 20, cz - sunDir.z * 100);
 
       const night = day < 0.25; if (night !== isNight) isNight = night;
