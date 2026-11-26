@@ -62,7 +62,7 @@ const LAYERS = [
 ];
 
 const SPECIMEN = {
-  id:'kucing', kind:'cat', name:'Kucing', short:'kucing', sci:'Felis catus', family:'Felidae',
+  id:'kucing', kind:'animal', tagNear:5, name:'Kucing', short:'kucing', sci:'Felis catus', family:'Felidae',
   x:-5, z:7, top:0.7, mkOff:1.1, promptY:0.55,
   fact:'Kucing domestik termasuk keluarga Felidae, sama seperti singa dan harimau. Tubuhnya dirancang untuk berburu: refleks cepat, cakar yang bisa ditarik, mata peka cahaya redup, dan kumis peraba.',
   hint:'Geser slider Kedalaman untuk mengupas lapisan dari kulit sampai organ dalam, atau ketuk bagian tubuh dan daftar di samping. Geser Aktivitas untuk melihat jantung dan paru bekerja lebih cepat.'

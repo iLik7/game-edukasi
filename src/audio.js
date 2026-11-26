@@ -77,13 +77,37 @@ export function createAudio() {
   function bubbles(n = 6, vl = 0.05) { if (!ctx || !on) return; const at = ctx.currentTime; for (let i = 0; i < n; i++) { const t0 = at + i * (0.04 + Math.random() * 0.08), f = 250 + Math.random() * 500; const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(f, t0); o.frequency.exponentialRampToValueAtTime(f * 2.5, t0 + 0.06); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vl, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08); o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.1); } }
   function setUnder(b) { if (!ctx || b === under) return; under = b; lp.frequency.setTargetAtTime(b ? 520 : 20000, ctx.currentTime, 0.12); }
 
+  /* lenguh sapi: nada rendah panjang dengan formant "mooo" */
+  function moo(vl, pn) {
+    if (!ctx || !on) return; const at = ctx.currentTime + 0.02, dur = 1.3 + Math.random() * 0.5, f = 95 + Math.random() * 25;
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f * 0.85, at); o.frequency.linearRampToValueAtTime(f * 1.15, at + dur * 0.3); o.frequency.linearRampToValueAtTime(f * 0.9, at + dur);
+    const f1 = ctx.createBiquadFilter(), f2 = ctx.createBiquadFilter(); f1.type = f2.type = 'bandpass'; f1.Q.value = 4; f2.Q.value = 5;
+    f1.frequency.setValueAtTime(320, at); f1.frequency.linearRampToValueAtTime(520, at + dur * 0.4); f1.frequency.linearRampToValueAtTime(350, at + dur);
+    f2.frequency.setValueAtTime(800, at); f2.frequency.linearRampToValueAtTime(1000, at + dur * 0.4);
+    const g = ctx.createGain(), p = pan(pn); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vl * 1.4, at + 0.25); g.gain.setValueAtTime(vl * 1.4, at + dur * 0.7); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    const mix = ctx.createGain(); mix.gain.value = 0.9; o.connect(f1); o.connect(f2); f1.connect(mix); f2.connect(mix); mix.connect(g); g.connect(p); p.connect(master); o.start(at); o.stop(at + dur + 0.05);
+  }
+  /* embik kambing: nada menengah bergetar cepat "mbeeek" */
+  function bleat(vl, pn) {
+    if (!ctx || !on) return; const at = ctx.currentTime + 0.02, dur = 0.7 + Math.random() * 0.3, f = 330 + Math.random() * 80;
+    const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.setValueAtTime(f, at); o.frequency.linearRampToValueAtTime(f * 1.1, at + dur * 0.3); o.frequency.linearRampToValueAtTime(f * 0.92, at + dur);
+    const trem = ctx.createOscillator(); trem.frequency.value = 13; const tg = ctx.createGain(); tg.gain.value = 0.45;
+    const am = ctx.createGain(); am.gain.value = 0.55; trem.connect(tg); tg.connect(am.gain);
+    const f1 = ctx.createBiquadFilter(), f2 = ctx.createBiquadFilter(); f1.type = f2.type = 'bandpass'; f1.Q.value = 5; f2.Q.value = 6; f1.frequency.value = 650; f2.frequency.value = 1900;
+    f1.frequency.setValueAtTime(450, at); f1.frequency.linearRampToValueAtTime(700, at + 0.12);
+    const g = ctx.createGain(), p = pan(pn); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vl, at + 0.06); g.gain.setValueAtTime(vl, at + dur * 0.6); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(am); am.connect(f1); am.connect(f2); const mix = ctx.createGain(); mix.gain.value = 0.7; f1.connect(mix); f2.connect(mix); mix.connect(g); g.connect(p); p.connect(master);
+    o.start(at); o.stop(at + dur + 0.05); trem.start(at); trem.stop(at + dur + 0.05);
+  }
+  function call(id, vl, pn) { if (id === 'sapi') moo(vl, pn); else if (id === 'kambing') bleat(vl * 0.9, pn); else meow(vl * 0.8, pn); }
+
   function ramp(g, v, tc = 0.6) { g.gain.setTargetAtTime(v, ctx.currentTime, tc); }
 
   return {
     init,
     get enabled() { return on; },
     setEnabled(v) { on = v; if (ctx) master.gain.setTargetAtTime(on ? vol : 0, ctx.currentTime, 0.1); },
-    meow, splash, bubbles, setUnder,
+    meow, call, splash, bubbles, setUnder,
     /* s: {day 0..1, world bool, catSub bool, catDist m, catPan -1..1} */
     update(dt, s) {
       if (!ctx || !on) return; t += dt;
@@ -96,10 +120,6 @@ export function createAudio() {
       if (s.world && !s.under && s.day > 0.35) {
         nextBird -= dt;
         if (nextBird <= 0) { bird(0.035 + Math.random() * 0.03); if (birdFlock > 0) { birdFlock--; nextBird = 0.4 + Math.random() * 0.9; } else { birdFlock = Math.random() < 0.3 ? 2 + Math.floor(Math.random() * 3) : 0; nextBird = 3 + Math.random() * 7; } }
-      }
-      if (s.world && s.catDist < 9) {
-        nextMeow -= dt;
-        if (nextMeow <= 0) { meow(0.16 * Math.max(0.15, 1 - s.catDist / 10), s.catPan); nextMeow = 9 + Math.random() * 14; }
       }
     },
   };

@@ -7,7 +7,11 @@ import { buildVegetation } from './vegetation.js';
 import { createFX } from './fx.js';
 import { buildDissect } from './dissect.js';
 import CAT from './objects/kucing.js';
-import { buildWorldCat, buildCatDissect, vitals } from './cat.js';
+import { ruminantData } from './objects/ruminansia.js';
+import { buildWorldAnimal, buildAnimalDissect, merge as mergeGeo } from './animal.js';
+import SP_KUCING from './species/kucing.js';
+import SP_SAPI from './species/sapi.js';
+import SP_KAMBING from './species/kambing.js';
 import { createAudio } from './audio.js';
 import { createSplash } from './splash.js';
 
@@ -15,10 +19,16 @@ import { createSplash } from './splash.js';
 'use strict';
 const KEY='hutan-ilmu-v1',QKEY='hutan-ilmu-q';
 const TLAYERS=OBJ.layers,TREES=OBJ.specimens,QUIZ=OBJ.quiz;
-const HEROES=TREES.concat([CAT.specimen]),CATI=HEROES.length-1;
+const AN=[{data:CAT,spec:SP_KUCING},{data:ruminantData('sapi'),spec:SP_SAPI},{data:ruminantData('kambing'),spec:SP_KAMBING}];
+const HEROES=TREES.concat(AN.map(function(a){return a.data.specimen}));
+AN.forEach(function(a,i){a.hi=TREES.length+i});
+const PADDOCK={x:13,z:22.5,r:8.5};
 let LAYERS=TLAYERS,subject='tree';
-const fk=function(id){return subject==='cat'?'cat:'+id:id};
-const treeCount=function(){return Object.keys(S.trees).filter(function(k){return k!=='kucing'}).length};
+const isAnimal=function(){return subject!=='tree'};
+const anOf=function(id){return AN.find(function(a){return a.data.id===id})};
+const fk=function(id){return subject==='tree'?id:(subject==='kucing'?'cat:':subject+':')+id};
+const animalCount=function(){return AN.filter(function(a){return S.trees[a.data.id]}).length};
+const treeCount=function(){return TREES.filter(function(t){return S.trees[t.id]}).length};
 const foundCount=function(){return Object.keys(S.found).filter(function(k){return k.indexOf(':')<0}).length};
 const isTouch=('ontouchstart' in window)||(navigator.maxTouchPoints>0)||window.matchMedia('(pointer:coarse)').matches;
 const DEBUG=/[?&]debug/.test(location.search);
@@ -32,7 +42,7 @@ function missionText(){
   const n=foundCount(),t=treeCount();
   if(!S.mission)return 'Temukan 6 lapisan batang: '+n+'/6';
   if(t<TREES.length)return 'Bedah semua pohon bertanda: '+t+'/'+TREES.length;
-  if(!S.trees.kucing)return 'Bedah kucing yang berkeliaran di dekat jalan setapak.';
+  if(animalCount()<AN.length)return 'Bedah hewan: kucing, sapi, kambing '+animalCount()+'/'+AN.length;
   return 'Semua misi selesai. Coba kuis untuk XP tambahan.';
 }
 function updProfile(){
@@ -86,18 +96,35 @@ function collide(p){
   }
 }
 
-const veg=await buildVegetation({scene:world,heroes:TREES,addObs:addObs,quality:quality,progress:function(f,t){loadProgress(0.1+f*0.6,t)}});
+const veg=await buildVegetation({scene:world,heroes:TREES,clear:[PADDOCK],addObs:addObs,quality:quality,progress:function(f,t){loadProgress(0.1+f*0.6,t)}});
 const heroObjs=veg.heroObjs,heroHits=veg.heroHits;
-/* kucing di dunia: dijadwalkan sebagai spesimen terakhir supaya tag, prompt, dan klik memakai jalur yang sama */
-const catW=buildWorldCat(world,{heightAt:heightAt,WATER:WATER},{x:CAT.specimen.x,z:CAT.specimen.z});
-{
-  const H=HEROES[CATI];
-  const mk=new THREE.Mesh(new THREE.OctahedronGeometry(0.16,0),new THREE.MeshStandardMaterial({color:0xffd35a,emissive:0xffa800,emissiveIntensity:2.2,roughness:0.3}));mk.userData.noAO=true;world.add(mk);
-  const rg=new THREE.RingGeometry(0.5,0.6,40,1);rg.rotateX(-Math.PI/2);
+/* hewan di dunia: dijadwalkan setelah pohon supaya tag, prompt, dan klik memakai jalur yang sama */
+AN.forEach(function(a,k){
+  const H=a.data.specimen;
+  a.w=buildWorldAnimal(world,{heightAt:heightAt,WATER:WATER},a.spec,{x:H.x,z:H.z},404+k*31,a.data.id==='kucing'?null:PADDOCK);
+  const mk=new THREE.Mesh(new THREE.OctahedronGeometry(a.data.id==='sapi'?0.3:0.16,0),new THREE.MeshStandardMaterial({color:0xffd35a,emissive:0xffa800,emissiveIntensity:2.2,roughness:0.3}));mk.userData.noAO=true;world.add(mk);
+  const rr=a.data.id==='sapi'?1.6:a.data.id==='kambing'?0.9:0.55;
+  const rg=new THREE.RingGeometry(rr,rr+0.1,48,1);rg.rotateX(-Math.PI/2);
   const ring=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({color:new THREE.Color(2.2,1.7,0.5),transparent:true,opacity:0.8,side:THREE.DoubleSide,depthWrite:false}));ring.userData.noAO=true;world.add(ring);
-  catW.hit.userData.hero=CATI;heroHits.push(catW.hit);
-  heroObjs.push({g:catW.group,mk:mk,ring:ring,y:catW.y});
-}
+  a.w.hit.userData.hero=a.hi;heroHits.push(a.w.hit);
+  heroObjs.push({g:a.w.group,mk:mk,ring:ring,y:a.w.y});
+  a.callT=4+k*5;
+});
+/* pagar padang rumput, ada celah gerbang menghadap titik awal */
+(function(){
+  const n=28,gate=Math.atan2(2-PADDOCK.z,0-PADDOCK.x),posts=[],rails=[],P0=[];
+  for(let i=0;i<n;i++){const a=i/n*Math.PI*2,x=PADDOCK.x+Math.cos(a)*PADDOCK.r,z=PADDOCK.z+Math.sin(a)*PADDOCK.r;P0.push({a:a,x:x,z:z,y:heightAt(x,z)})}
+  const ad=function(a,b){return Math.abs(Math.atan2(Math.sin(a-b),Math.cos(a-b)))};
+  P0.forEach(function(p,i){
+    const g=new THREE.CylinderGeometry(0.07,0.09,1.2,6);g.translate(p.x,p.y+0.55,p.z);posts.push(g);addObs(p.x,p.z,0.12);
+    const q=P0[(i+1)%n],mid=(p.a+q.a)/2+(i===n-1?Math.PI:0);
+    if(ad(mid,gate)<0.18)return;
+    const L=Math.hypot(q.x-p.x,q.z-p.z);
+    for(const h of [0.45,0.9]){const r=new THREE.BoxGeometry(L,0.07,0.05);r.rotateY(-Math.atan2(q.z-p.z,q.x-p.x));r.translate((p.x+q.x)/2,(p.y+q.y)/2+h,(p.z+q.z)/2);rails.push(r)}
+  });
+  const wood=new THREE.MeshStandardMaterial({color:new THREE.Color().setRGB(0.36,0.25,0.16,THREE.SRGBColorSpace),roughness:0.9});
+  const m=new THREE.Mesh(mergeGeo(posts.concat(rails)),wood);m.castShadow=true;m.receiveShadow=true;world.add(m);
+})();
 
 const P={x:0,z:2,y:0,face:Math.PI,phase:0,jh:0,jv:0,swim:false,ey:0,eyeS:0,wet:false,under:false,step:0,stroke:0,bub:0};
 P.y=heightAt(P.x,P.z);
@@ -113,14 +140,13 @@ function sndLabel(){const b=$('#bSnd');if(b)b.querySelector('span').textContent=
 /* ================= DISSECT ================= */
 loadProgress(0.72,'Menyiapkan bedah batang…');await tick();
 const DT=buildDissect(renderer,TLAYERS);
-const DC=buildCatDissect(renderer);
 let D=DT,dcam=D.camera,layerMeshes=D.layerMeshes,waterFlow=D.waterFlow,sugarFlow=D.sugarFlow,dState=D.state;
 let selected=null,hovered=null;
 
 /* ================= post-processing ================= */
 loadProgress(0.85,'Menyiapkan efek visual…');await tick();
 const fxW=createFX(renderer,world,wcam);
-let fxD=createFX(renderer,DT.scene,DT.camera,{aoRadius:0.45,bloomStrength:0.45}),fxC=null;
+let fxD=createFX(renderer,DT.scene,DT.camera,{aoRadius:0.45,bloomStrength:0.45});
 
 let tDay=0.3,T=0;
 function setClock(){
@@ -131,7 +157,7 @@ function setClock(){
 let wasNight=false;
 function applyQuality(q){
   quality=q;try{localStorage.setItem(QKEY,q)}catch(e){}
-  fxW.setQuality(q);fxD.setQuality(q);if(fxC)fxC.setQuality(q);
+  fxW.setQuality(q);fxD.setQuality(q);AN.forEach(function(a){if(a.fx)a.fx.setQuality(q)});
   sky.setShadowSize(q==='tinggi'?2048:1024);sky.envEvery=q==='tinggi'?2.5:5;
   veg.setQuality(q);
   const b=$('#bQual');if(b)b.querySelector('span').textContent='Grafik: '+(q==='tinggi'?'Tinggi':'Hemat');
@@ -141,20 +167,21 @@ function applyQuality(q){
 /* ganti objek bedah: pohon atau kucing */
 function useSubject(kind){
   subject=kind;
-  if(kind==='cat'){
-    if(!fxC){fxC=createFX(renderer,DC.scene,DC.camera,{aoRadius:0.4,bloomStrength:0.35});fxC.setQuality(quality);const pr=pixelRatio();fxC.setSize(window.innerWidth,window.innerHeight,pr)}
-    D=DC;LAYERS=CAT.layers;
+  if(kind!=='tree'){
+    const a=anOf(kind);
+    if(!a.D){a.D=buildAnimalDissect(renderer,a.spec);a.fx=createFX(renderer,a.D.scene,a.D.camera,{aoRadius:0.4,bloomStrength:0.35});a.fx.setQuality(quality);a.fx.setSize(window.innerWidth,window.innerHeight,pixelRatio())}
+    D=a.D;LAYERS=a.data.layers;
   }else{D=DT;LAYERS=TLAYERS}
   dcam=D.camera;layerMeshes=D.layerMeshes;waterFlow=D.waterFlow;sugarFlow=D.sugarFlow;dState=D.state;
-  document.body.classList.toggle('catmode',kind==='cat');
+  document.body.classList.toggle('catmode',kind!=='tree');
 }
-const fxCur=function(){return subject==='cat'?fxC:fxD};
+const fxCur=function(){return subject==='tree'?fxD:anOf(subject).fx};
 
 /* ================= UI ================= */
 let mode='world',curHero=0;
 function sunCaption(){
   const s=dState.sun;
-  if(subject==='cat'){const v=vitals(s);$('#sunCap').textContent='Perkiraan: jantung '+v.bpm+' detak per menit, napas '+v.rr+' kali per menit. Saat aktif, otot butuh lebih banyak oksigen sehingga jantung dan paru bekerja lebih cepat. Angka ini kisaran umum, bukan patokan diagnosis.';return}
+  if(isAnimal()){const v=D.vitals(s);$('#sunCap').textContent='Perkiraan: jantung '+v.bpm+' detak per menit, napas '+v.rr+' kali per menit. Saat aktif, otot butuh lebih banyak oksigen sehingga jantung dan paru bekerja lebih cepat.'+(subject!=='kucing'?' Rumen ikut berkontraksi lebih sering.':'')+' Angka ini kisaran umum, bukan patokan diagnosis.';return}
   $('#sunCap').textContent=s>0.66?'Matahari terik: daun menguapkan banyak air (transpirasi), sehingga air tertarik naik cepat. Fotosintesis tinggi, banyak gula dikirim lewat floem.'
     :s>0.33?'Cahaya sedang: transpirasi dan fotosintesis berjalan sedang.'
     :'Cahaya rendah atau malam: stomata cenderung menutup, aliran air melambat, dan gula yang dibuat berkurang.';
@@ -168,8 +195,8 @@ function renderChips(){
 }
 function renderInfo(){
   const el=$('#info'),H=HEROES[curHero];
-  if(!selected&&subject==='cat'){
-    el.innerHTML='<h2>Anatomi kucing</h2><p class="sci">Felis catus</p><p class="hint">'+H.hint+'</p><h3>Tentang kucing</h3><p>'+H.fact+'</p>';
+  if(!selected&&isAnimal()){
+    el.innerHTML='<h2>Anatomi '+H.short+'</h2><p class="sci">'+H.sci+'</p><p class="hint">'+H.hint+'</p><h3>Tentang '+H.short+'</h3><p>'+H.fact+'</p>';
     return;
   }
   if(!selected){
@@ -181,8 +208,8 @@ function renderInfo(){
 }
 function select(id){
   selected=id;
-  if(id&&!S.found[fk(id)]){S.found[fk(id)]=1;award(20,subject==='cat'?'bagian tubuh baru':'lapisan baru');checkMission()}
-  if(subject==='cat'&&id){const dd={kulit:0,otot:0.32,rangka:0.68}[id];dState.depthT=dd!==undefined?dd:1;const sl=$('#depth');if(sl)sl.value=Math.round(dState.depthT*100)}
+  if(id&&!S.found[fk(id)]){S.found[fk(id)]=1;award(20,isAnimal()?'bagian tubuh baru':'lapisan baru');checkMission()}
+  if(isAnimal()&&id){const dd={kulit:0,otot:0.32,rangka:0.68}[id];dState.depthT=dd!==undefined?dd:1;const sl=$('#depth');if(sl)sl.value=Math.round(dState.depthT*100)}
   renderChips();renderInfo();
   const p=$('#panel');if(p)p.scrollTop=0;
 }
@@ -193,15 +220,15 @@ function fadeTo(fn){
 function enterDissect(i){
   fadeTo(function(){
     curHero=i;const H=HEROES[i];
-    useSubject(H.kind==='cat'?'cat':'tree');
-    if(subject==='cat')audio.meow(0.2,0);
+    useSubject(H.kind==='animal'?H.id:'tree');
+    if(isAnimal())audio.call(H.id,0.2,0);
     if(subject==='tree')D.setSpecies(Object.assign({id:H.id},H.wood));
     mode='dissect';document.body.classList.add('dissect');
-    $('#dName').textContent=H.name;$('#dSci').textContent=(subject==='cat'?'Anatomi dan fisiologi · ':'Penampang batang · ')+H.sci;
-    dState.yaw=0;dState.user=false;
-    if(subject==='cat'){dState.pitch=0.3;dState.dist=window.innerWidth<760?38:16;dState.depthT=0;dState.depth=0;dState.sun=0.2;const a=$('#sun'),b=$('#depth');if(a)a.value=20;if(b)b.value=0}
+    $('#dName').textContent=H.name;$('#dSci').textContent=(isAnimal()?'Anatomi dan fisiologi · ':'Penampang batang · ')+H.sci;
+    dState.yaw=dState.yaw0||0;dState.user=false;
+    if(isAnimal()){dState.pitch=0.3;dState.dist=window.innerWidth<760?(H.id==='sapi'?46:38):(H.id==='sapi'?21:16);dState.depthT=0;dState.depth=0;dState.sun=0.2;const a=$('#sun'),b=$('#depth');if(a)a.value=20;if(b)b.value=0}
     else{dState.pitch=0.5;dState.dist=window.innerWidth<760?19:14}
-    if(!S.trees[H.id]){S.trees[H.id]=1;award(10,subject==='cat'?'kucing dibedah':'pohon baru')}
+    if(!S.trees[H.id]){S.trees[H.id]=1;award(10,isAnimal()?H.short+' dibedah':'pohon baru')}
     selected=null;renderChips();renderInfo();sunCaption();updProfile();resize();
     keys={};joy.x=0;joy.y=0;
   });
@@ -232,7 +259,7 @@ let qz=null;
 function shuffle(a,r){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a}
 function startQuiz(){
   const r=Math.random;
-  const pool=(subject==='cat'&&mode==='dissect')?CAT.quiz.slice():QUIZ.filter(function(q){return !q.sp||S.trees[q.sp]}).concat(S.trees.kucing&&mode==='world'?CAT.quiz:[]);
+  const pool=(isAnimal()&&mode==='dissect')?anOf(subject).data.quiz.slice():QUIZ.filter(function(q){return !q.sp||S.trees[q.sp]}).concat([].concat.apply([],AN.map(function(a){return S.trees[a.data.id]&&mode==='world'?a.data.quiz:[]})));
   const set=shuffle(pool.slice(),r).slice(0,6);
   qz={i:0,score:0,gain:0,set:set,order:set.map(function(_,i){return i}),done:false};
   renderQ();
@@ -471,17 +498,22 @@ function updWorld(dt){
   if(Math.abs(wcam.fov-cam.fov)>0.02){wcam.fov=cam.fov;wcam.updateProjectionMatrix()}
 
   /* markers, tags, prompt */
-  catW.update(dt,T,P);
-  { const H=HEROES[CATI],o=heroObjs[CATI];H.x=catW.x;H.z=catW.z;o.y=catW.y;o.mk.position.x=catW.x;o.mk.position.z=catW.z;o.ring.position.set(catW.x,catW.y+0.04,catW.z) }
+  AN.forEach(function(a){
+    const w=a.w;w.update(dt,T,P);
+    const H=HEROES[a.hi],o=heroObjs[a.hi];H.x=w.x;H.z=w.z;o.y=w.y;o.mk.position.x=w.x;o.mk.position.z=w.z;o.ring.position.set(w.x,w.y+0.04,w.z);
+    /* suara hewan sesekali saat pemain dekat */
+    const dx=w.x-P.x,dz=w.z-P.z,d=Math.hypot(dx,dz)||1;
+    a.callT-=dt;if(a.callT<=0){a.callT=8+Math.random()*16;if(d<14&&!P.under)audio.call(a.data.id,0.2*Math.max(0.15,1-d/15),(dx*Math.cos(cam.yaw)-dz*Math.sin(cam.yaw))/d)}
+  });
   let bestD=1e9,bestI=-1;
   heroObjs.forEach(function(o,i){
     const H=HEROES[i];
-    o.mk.rotation.y+=dt*1.6;o.mk.position.y=o.y+H.top+(H.mkOff!=null?H.mkOff:2.2)+Math.sin(T*2+i)*(H.kind==='cat'?0.06:0.3);
+    o.mk.rotation.y+=dt*1.6;o.mk.position.y=o.y+H.top+(H.mkOff!=null?H.mkOff:2.2)+Math.sin(T*2+i)*(H.kind==='animal'?0.06:0.3);
     const s=1+0.1*Math.sin(T*3+i);o.ring.scale.set(s,s,s);
     const d=Math.hypot(P.x-H.x,P.z-H.z),tg=tags[i];
     if(d<bestD){bestD=d;bestI=i}
     tv.set(H.x,o.y+H.top*0.6,H.z).project(wcam);
-    if(tv.z<1&&d<60&&d>(H.kind==='cat'?5:11)){
+    if(tv.z<1&&d<60&&d>(H.tagNear||11)){
       const w=window.innerWidth,h=window.innerHeight;
       tg.style.display='block';
       tg.style.transform='translate('+((tv.x*0.5+0.5)*w)+'px,'+((-tv.y*0.5+0.5)*h)+'px) translate(-50%,-100%)';
@@ -512,11 +544,11 @@ function updWorld(dt){
 function resize(){
   const w=window.innerWidth,h=window.innerHeight,pr=pixelRatio();
   renderer.setPixelRatio(pr);renderer.setSize(w,h,false);
-  fxW.setSize(w,h,pr);fxD.setSize(w,h,pr);if(fxC)fxC.setSize(w,h,pr);
+  fxW.setSize(w,h,pr);fxD.setSize(w,h,pr);AN.forEach(function(a){if(a.fx)a.fx.setSize(w,h,pr)});
   wcam.aspect=w/h;wcam.updateProjectionMatrix();
   dcam.aspect=w/h;
   /* keep the trunk clear of the side panel on wide screens */
-  if(w>760){dcam.setViewOffset(w,h,Math.min(120,w*0.09),0,w,h)}else if(subject==='cat'){dcam.setViewOffset(w,h,0,Math.round(h*0.13),w,h)}else{dcam.clearViewOffset()}
+  if(w>760){dcam.setViewOffset(w,h,Math.min(120,w*0.09),0,w,h)}else if(isAnimal()){dcam.setViewOffset(w,h,0,Math.round(h*0.13),w,h)}else{dcam.clearViewOffset()}
   dcam.updateProjectionMatrix();
 }
 window.addEventListener('resize',resize);
@@ -538,11 +570,11 @@ function step(dt){
     updWorld(dt);
     sky.update(tDay,T,dt,{x:P.x,y:P.y+1.6,z:P.z},P.under);setClock();
     veg.update(P,T,dt);water.update(T);
-    { const cdx=catW.x-P.x,cdz=catW.z-P.z,cd=Math.hypot(cdx,cdz)||1;audio.update(dt,{day:sky.day,world:true,under:P.under,catDist:cd,catPan:(cdx*Math.cos(cam.yaw)-cdz*Math.sin(cam.yaw))/cd}) }
+    audio.update(dt,{day:sky.day,world:true,under:P.under});
     fxW.render(dt);
   }else{
     D.update(dt,T,selected,hovered);
-    audio.update(dt,{day:sky.day,world:false,under:false,catSub:subject==='cat',catDist:99,catPan:0});
+    audio.update(dt,{day:sky.day,world:false,under:false,catSub:subject==='kucing'});
     fxCur().render(dt);
   }
 }

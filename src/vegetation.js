@@ -208,7 +208,7 @@ function normalizedMeshes(root, targetSize) {
   return out;
 }
 
-export async function buildVegetation({ scene, heroes, addObs, progress, quality }) {
+export async function buildVegetation({ scene, heroes, clear = [], addObs, progress, quality }) {
   const chunkSize = 40, chunks = [], lowDetail = { v: quality === 'hemat' };
   const step = async (t, f) => { progress && progress(f, t); await yieldFrame(); };
 
@@ -240,6 +240,7 @@ export async function buildVegetation({ scene, heroes, addObs, progress, quality
     const h = heightAt(x, z); if (h < WATER + 0.9) continue;
     if (pathDist(x, z) < 2.6) continue;
     if (heroes.some((H) => Math.hypot(x - H.x, z - H.z) < heroR)) continue;
+    if (clear.some((c) => Math.hypot(x - c.x, z - c.z) < c.r + 2)) continue;
     if (spots.some((s) => Math.hypot(x - s.x, z - s.z) < 4.2)) continue;
     spots.push({ x, y: h, z, s: 0.8 + r() * 0.5, r: r(), c: r(), n: Math.sin(x * 0.03) * Math.cos(z * 0.025) });
   }
