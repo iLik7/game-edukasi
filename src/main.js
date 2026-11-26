@@ -6,11 +6,18 @@ import { createSky } from './sky.js';
 import { buildVegetation } from './vegetation.js';
 import { createFX } from './fx.js';
 import { buildDissect } from './dissect.js';
+import CAT from './objects/kucing.js';
+import { buildWorldCat, buildCatDissect, vitals } from './cat.js';
 
 (async function(){
 'use strict';
 const KEY='hutan-ilmu-v1',QKEY='hutan-ilmu-q';
-const LAYERS=OBJ.layers,HEROES=OBJ.specimens,QUIZ=OBJ.quiz;
+const TLAYERS=OBJ.layers,TREES=OBJ.specimens,QUIZ=OBJ.quiz;
+const HEROES=TREES.concat([CAT.specimen]),CATI=HEROES.length-1;
+let LAYERS=TLAYERS,subject='tree';
+const fk=function(id){return subject==='cat'?'cat:'+id:id};
+const treeCount=function(){return Object.keys(S.trees).filter(function(k){return k!=='kucing'}).length};
+const foundCount=function(){return Object.keys(S.found).filter(function(k){return k.indexOf(':')<0}).length};
 const isTouch=('ontouchstart' in window)||(navigator.maxTouchPoints>0)||window.matchMedia('(pointer:coarse)').matches;
 const DEBUG=/[?&]debug/.test(location.search);
 /* ---------------- state ---------------- */
@@ -20,9 +27,10 @@ function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
 let toastT=0;
 function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('on');clearTimeout(toastT);toastT=setTimeout(function(){el.classList.remove('on')},2400)}
 function missionText(){
-  const n=Object.keys(S.found).length,t=Object.keys(S.trees).length;
+  const n=foundCount(),t=treeCount();
   if(!S.mission)return 'Temukan 6 lapisan batang: '+n+'/6';
-  if(t<HEROES.length)return 'Bedah semua pohon bertanda: '+t+'/'+HEROES.length;
+  if(t<TREES.length)return 'Bedah semua pohon bertanda: '+t+'/'+TREES.length;
+  if(!S.trees.kucing)return 'Bedah kucing yang berkeliaran di dekat jalan setapak.';
   return 'Semua misi selesai. Coba kuis untuk XP tambahan.';
 }
 function updProfile(){
@@ -33,7 +41,7 @@ function updProfile(){
   $('#mission').textContent=missionText();
 }
 function award(n,why){S.xp+=n;toast('+'+n+' XP '+why);updProfile();save()}
-function checkMission(){if(!S.mission&&Object.keys(S.found).length>=LAYERS.length){S.mission=true;award(60,'misi selesai');updProfile()}}
+function checkMission(){if(!S.mission&&foundCount()>=TLAYERS.length){S.mission=true;award(60,'misi selesai');updProfile()}}
 
 /* ---------------- renderer + kualitas ---------------- */
 let quality=null;
@@ -54,7 +62,7 @@ function loadProgress(f,t){$('#loadBar').style.width=Math.round(f*100)+'%';if(t)
 const tick=function(){return new Promise(function(r){setTimeout(r,0)})};
 
 /* ================= WORLD ================= */
-setPaths(HEROES);
+setPaths(TREES);
 const world=new THREE.Scene();
 const wcam=new THREE.PerspectiveCamera(66,1,0.15,1200);wcam.rotation.order='YXZ';
 const sky=createSky(world,renderer);
@@ -75,8 +83,18 @@ function collide(p){
   }
 }
 
-const veg=await buildVegetation({scene:world,heroes:HEROES,addObs:addObs,quality:quality,progress:function(f,t){loadProgress(0.1+f*0.6,t)}});
+const veg=await buildVegetation({scene:world,heroes:TREES,addObs:addObs,quality:quality,progress:function(f,t){loadProgress(0.1+f*0.6,t)}});
 const heroObjs=veg.heroObjs,heroHits=veg.heroHits;
+/* kucing di dunia: dijadwalkan sebagai spesimen terakhir supaya tag, prompt, dan klik memakai jalur yang sama */
+const catW=buildWorldCat(world,{heightAt:heightAt,WATER:WATER},{x:CAT.specimen.x,z:CAT.specimen.z});
+{
+  const H=HEROES[CATI];
+  const mk=new THREE.Mesh(new THREE.OctahedronGeometry(0.16,0),new THREE.MeshStandardMaterial({color:0xffd35a,emissive:0xffa800,emissiveIntensity:2.2,roughness:0.3}));mk.userData.noAO=true;world.add(mk);
+  const rg=new THREE.RingGeometry(0.5,0.6,40,1);rg.rotateX(-Math.PI/2);
+  const ring=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({color:new THREE.Color(2.2,1.7,0.5),transparent:true,opacity:0.8,side:THREE.DoubleSide,depthWrite:false}));ring.userData.noAO=true;world.add(ring);
+  catW.hit.userData.hero=CATI;heroHits.push(catW.hit);
+  heroObjs.push({g:catW.group,mk:mk,ring:ring,y:catW.y});
+}
 
 const P={x:0,z:2,y:0,face:Math.PI,phase:0,jh:0,jv:0};
 P.y=heightAt(P.x,P.z);
@@ -84,14 +102,15 @@ const cam={yaw:0,pitch:-0.04,fov:66};
 
 /* ================= DISSECT ================= */
 loadProgress(0.72,'Menyiapkan bedah batang…');await tick();
-const D=buildDissect(renderer,LAYERS);
-const dcam=D.camera,layerMeshes=D.layerMeshes,waterFlow=D.waterFlow,sugarFlow=D.sugarFlow,dState=D.state;
+const DT=buildDissect(renderer,TLAYERS);
+const DC=buildCatDissect(renderer);
+let D=DT,dcam=D.camera,layerMeshes=D.layerMeshes,waterFlow=D.waterFlow,sugarFlow=D.sugarFlow,dState=D.state;
 let selected=null,hovered=null;
 
 /* ================= post-processing ================= */
 loadProgress(0.85,'Menyiapkan efek visual…');await tick();
 const fxW=createFX(renderer,world,wcam);
-const fxD=createFX(renderer,D.scene,dcam,{aoRadius:0.45,bloomStrength:0.45});
+let fxD=createFX(renderer,DT.scene,DT.camera,{aoRadius:0.45,bloomStrength:0.45}),fxC=null;
 
 let tDay=0.3,T=0;
 function setClock(){
@@ -102,17 +121,30 @@ function setClock(){
 let wasNight=false;
 function applyQuality(q){
   quality=q;try{localStorage.setItem(QKEY,q)}catch(e){}
-  fxW.setQuality(q);fxD.setQuality(q);
+  fxW.setQuality(q);fxD.setQuality(q);if(fxC)fxC.setQuality(q);
   sky.setShadowSize(q==='tinggi'?2048:1024);sky.envEvery=q==='tinggi'?2.5:5;
   veg.setQuality(q);
   const b=$('#bQual');if(b)b.querySelector('span').textContent='Grafik: '+(q==='tinggi'?'Tinggi':'Hemat');
   resize();
 }
 
+/* ganti objek bedah: pohon atau kucing */
+function useSubject(kind){
+  subject=kind;
+  if(kind==='cat'){
+    if(!fxC){fxC=createFX(renderer,DC.scene,DC.camera,{aoRadius:0.4,bloomStrength:0.35});fxC.setQuality(quality);const pr=pixelRatio();fxC.setSize(window.innerWidth,window.innerHeight,pr)}
+    D=DC;LAYERS=CAT.layers;
+  }else{D=DT;LAYERS=TLAYERS}
+  dcam=D.camera;layerMeshes=D.layerMeshes;waterFlow=D.waterFlow;sugarFlow=D.sugarFlow;dState=D.state;
+  document.body.classList.toggle('catmode',kind==='cat');
+}
+const fxCur=function(){return subject==='cat'?fxC:fxD};
+
 /* ================= UI ================= */
 let mode='world',curHero=0;
 function sunCaption(){
   const s=dState.sun;
+  if(subject==='cat'){const v=vitals(s);$('#sunCap').textContent='Perkiraan: jantung '+v.bpm+' detak per menit, napas '+v.rr+' kali per menit. Saat aktif, otot butuh lebih banyak oksigen sehingga jantung dan paru bekerja lebih cepat. Angka ini kisaran umum, bukan patokan diagnosis.';return}
   $('#sunCap').textContent=s>0.66?'Matahari terik: daun menguapkan banyak air (transpirasi), sehingga air tertarik naik cepat. Fotosintesis tinggi, banyak gula dikirim lewat floem.'
     :s>0.33?'Cahaya sedang: transpirasi dan fotosintesis berjalan sedang.'
     :'Cahaya rendah atau malam: stomata cenderung menutup, aliran air melambat, dan gula yang dibuat berkurang.';
@@ -121,11 +153,15 @@ const CHECK='<svg class="tick" viewBox="0 0 24 24" fill="none" stroke="currentCo
 function renderChips(){
   const el=$('#chips');
   el.innerHTML=LAYERS.map(function(L){
-    return '<button type="button" role="listitem" class="chip'+(selected===L.id?' sel':'')+'" data-id="'+L.id+'"><span class="sw" style="background:'+L.ui+'"></span>'+L.name+(S.found[L.id]?CHECK:'')+'</button>';
+    return '<button type="button" role="listitem" class="chip'+(selected===L.id?' sel':'')+'" data-id="'+L.id+'"><span class="sw" style="background:'+L.ui+'"></span>'+L.name+(S.found[fk(L.id)]?CHECK:'')+'</button>';
   }).join('');
 }
 function renderInfo(){
   const el=$('#info'),H=HEROES[curHero];
+  if(!selected&&subject==='cat'){
+    el.innerHTML='<h2>Anatomi kucing</h2><p class="sci">Felis catus</p><p class="hint">'+H.hint+'</p><h3>Tentang kucing</h3><p>'+H.fact+'</p>';
+    return;
+  }
   if(!selected){
     el.innerHTML='<h2>Penampang batang</h2><p class="sci">'+H.name+'</p><p class="hint">Ketuk lapisan pada batang, atau pilih dari daftar, untuk mempelajarinya. Titik biru adalah air yang naik lewat xilem. Titik kuning adalah gula yang turun lewat floem.</p><h3>Tentang pohon ini</h3><p>'+H.fact+'</p>';
     return;
@@ -135,7 +171,8 @@ function renderInfo(){
 }
 function select(id){
   selected=id;
-  if(id&&!S.found[id]){S.found[id]=1;award(20,'lapisan baru');checkMission()}
+  if(id&&!S.found[fk(id)]){S.found[fk(id)]=1;award(20,subject==='cat'?'bagian tubuh baru':'lapisan baru');checkMission()}
+  if(subject==='cat'&&id){const dd={kulit:0,otot:0.32,rangka:0.68}[id];dState.depthT=dd!==undefined?dd:1;const sl=$('#depth');if(sl)sl.value=Math.round(dState.depthT*100)}
   renderChips();renderInfo();
   const p=$('#panel');if(p)p.scrollTop=0;
 }
@@ -145,17 +182,21 @@ function fadeTo(fn){
 }
 function enterDissect(i){
   fadeTo(function(){
-    curHero=i;const H=HEROES[i];D.setSpecies(Object.assign({id:H.id},H.wood));
+    curHero=i;const H=HEROES[i];
+    useSubject(H.kind==='cat'?'cat':'tree');
+    if(subject==='tree')D.setSpecies(Object.assign({id:H.id},H.wood));
     mode='dissect';document.body.classList.add('dissect');
-    $('#dName').textContent=H.name;$('#dSci').textContent='Penampang batang · '+H.sci;
-    dState.yaw=0;dState.pitch=0.5;dState.dist=window.innerWidth<760?19:14;dState.user=false;
-    if(!S.trees[H.id]){S.trees[H.id]=1;award(10,'pohon baru')}
+    $('#dName').textContent=H.name;$('#dSci').textContent=(subject==='cat'?'Anatomi dan fisiologi · ':'Penampang batang · ')+H.sci;
+    dState.yaw=0;dState.user=false;
+    if(subject==='cat'){dState.pitch=0.3;dState.dist=window.innerWidth<760?38:16;dState.depthT=0;dState.depth=0;dState.sun=0.2;const a=$('#sun'),b=$('#depth');if(a)a.value=20;if(b)b.value=0}
+    else{dState.pitch=0.5;dState.dist=window.innerWidth<760?19:14}
+    if(!S.trees[H.id]){S.trees[H.id]=1;award(10,subject==='cat'?'kucing dibedah':'pohon baru')}
     selected=null;renderChips();renderInfo();sunCaption();updProfile();resize();
     keys={};joy.x=0;joy.y=0;
   });
 }
 function exitDissect(){
-  fadeTo(function(){mode='world';document.body.classList.remove('dissect');hideTip();updProfile();resize()});
+  fadeTo(function(){mode='world';useSubject('tree');document.body.classList.remove('dissect');hideTip();updProfile();resize()});
 }
 
 /* modals */
@@ -163,24 +204,24 @@ function openModal(html){$('#sheet').innerHTML=html;$('#modal').classList.add('o
 function closeModal(){$('#modal').classList.remove('on')}
 function modalOpen(){return $('#modal').classList.contains('on')}
 function openJournal(){
-  const nl=Object.keys(S.found).length,nt=Object.keys(S.trees).length;
-  const lay=LAYERS.map(function(L){
+  const nl=foundCount(),nt=treeCount();
+  const lay=TLAYERS.map(function(L){
     return S.found[L.id]
       ?'<div class="jc"><b><i style="background:'+L.ui+'"></i>'+L.name+'</b><em>'+L.sci+'</em><p>'+L.short+'</p></div>'
       :'<div class="jc lock"><b><i style="background:#3b4f47"></i>???</b><em>Belum ditemukan</em><p>Bedah sebuah pohon untuk menemukannya.</p></div>';
   }).join('');
-  const tr=HEROES.map(function(H){
+  const tr=TREES.map(function(H){
     return S.trees[H.id]
       ?'<div class="jc"><b>'+H.name+'</b><em>'+H.sci+'</em><p>'+H.fact+'</p></div>'
       :'<div class="jc lock"><b>???</b><em>Belum dibedah</em><p>Cari pohon bertanda di hutan.</p></div>';
   }).join('');
-  openModal('<div class="head"><div><h2>Jurnal</h2><p style="color:var(--muted);font-size:14px">'+nl+'/'+LAYERS.length+' lapisan batang, '+nt+'/'+HEROES.length+' pohon</p></div><button class="x" type="button" data-close aria-label="Tutup">&times;</button></div><h3>Lapisan batang</h3><div class="grid">'+lay+'</div><h3>Pohon</h3><div class="grid">'+tr+'</div>');
+  openModal('<div class="head"><div><h2>Jurnal</h2><p style="color:var(--muted);font-size:14px">'+nl+'/'+TLAYERS.length+' lapisan batang, '+nt+'/'+TREES.length+' pohon</p></div><button class="x" type="button" data-close aria-label="Tutup">&times;</button></div><h3>Lapisan batang</h3><div class="grid">'+lay+'</div><h3>Pohon</h3><div class="grid">'+tr+'</div>');
 }
 let qz=null;
 function shuffle(a,r){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a}
 function startQuiz(){
   const r=Math.random;
-  const pool=QUIZ.filter(function(q){return !q.sp||S.trees[q.sp]});
+  const pool=(subject==='cat'&&mode==='dissect')?CAT.quiz.slice():QUIZ.filter(function(q){return !q.sp||S.trees[q.sp]}).concat(S.trees.kucing&&mode==='world'?CAT.quiz:[]);
   const set=shuffle(pool.slice(),r).slice(0,6);
   qz={i:0,score:0,gain:0,set:set,order:set.map(function(_,i){return i}),done:false};
   renderQ();
@@ -223,6 +264,7 @@ $('#chips').addEventListener('click',function(e){const b=e.target.closest('.chip
 $('#tWater').addEventListener('change',function(e){waterFlow.pts.visible=e.target.checked});
 $('#tSugar').addEventListener('change',function(e){sugarFlow.pts.visible=e.target.checked});
 $('#sun').addEventListener('input',function(e){dState.sun=+e.target.value/100;sunCaption()});
+$('#depth').addEventListener('input',function(e){dState.depthT=+e.target.value/100;dState.user=true});
 function hideTip(){$('#tip').style.display='none'}
 $('#tipX').addEventListener('click',hideTip);
 setTimeout(hideTip,20000);
@@ -266,7 +308,7 @@ window.addEventListener('blur',function(){keys={}});
 const pts=new Map();let moved=0,downT=0,pinch0=0;
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2();
 function setRay(cx,cy,cam){const r=canvas.getBoundingClientRect();ndc.set((cx-r.left)/r.width*2-1,-((cy-r.top)/r.height)*2+1);ray.setFromCamera(ndc,cam)}
-function pickLayer(cx,cy){setRay(cx,cy,dcam);const h=ray.intersectObjects(layerMeshes,false)[0];return h?h.object.userData.layer:null}
+function pickLayer(cx,cy){setRay(cx,cy,dcam);const h=ray.intersectObjects(layerMeshes.filter(function(m){return m.visible}),false)[0];return h?h.object.userData.layer:null}
 function pickHero(cx,cy){setRay(cx,cy,wcam);const h=ray.intersectObjects(heroHits,false)[0];return h?h.object.userData.hero:-1}
 function nearestHero(){
   let b=-1,bd=1e9;
@@ -305,7 +347,7 @@ canvas.addEventListener('pointermove',function(e){
     const a=Array.from(pts.values()),d=Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y);
     if(pinch0>0){
       const f=pinch0/d;
-      if(mode==='dissect'){dState.user=true;dState.dist=clamp(dState.dist*f,6,24)}
+      if(mode==='dissect'){dState.user=true;dState.dist=clamp(dState.dist*f,6,46)}
     }
     pinch0=d;moved+=20;
   }
@@ -328,7 +370,7 @@ canvas.addEventListener('pointerup',up);canvas.addEventListener('pointercancel',
 canvas.addEventListener('pointerleave',function(){$('#tipL').style.display='none'});
 canvas.addEventListener('wheel',function(e){
   e.preventDefault();const f=Math.exp(e.deltaY*0.001);
-  if(mode==='dissect'){dState.user=true;dState.dist=clamp(dState.dist*f,6,24)}
+  if(mode==='dissect'){dState.user=true;dState.dist=clamp(dState.dist*f,6,46)}
 },{passive:false});
 $('#act').addEventListener('click',tryInteract);
 $('#jump').addEventListener('pointerdown',function(e){e.preventDefault();jumpReq=true});
@@ -370,15 +412,17 @@ function updWorld(dt){
   if(Math.abs(wcam.fov-cam.fov)>0.02){wcam.fov=cam.fov;wcam.updateProjectionMatrix()}
 
   /* markers, tags, prompt */
+  catW.update(dt,T,P);
+  { const H=HEROES[CATI],o=heroObjs[CATI];H.x=catW.x;H.z=catW.z;o.y=catW.y;o.mk.position.x=catW.x;o.mk.position.z=catW.z;o.ring.position.set(catW.x,catW.y+0.04,catW.z) }
   let bestD=1e9,bestI=-1;
   heroObjs.forEach(function(o,i){
     const H=HEROES[i];
-    o.mk.rotation.y+=dt*1.6;o.mk.position.y=o.y+H.top+2.2+Math.sin(T*2+i)*0.3;
+    o.mk.rotation.y+=dt*1.6;o.mk.position.y=o.y+H.top+(H.mkOff!=null?H.mkOff:2.2)+Math.sin(T*2+i)*(H.kind==='cat'?0.06:0.3);
     const s=1+0.1*Math.sin(T*3+i);o.ring.scale.set(s,s,s);
     const d=Math.hypot(P.x-H.x,P.z-H.z),tg=tags[i];
     if(d<bestD){bestD=d;bestI=i}
     tv.set(H.x,o.y+H.top*0.6,H.z).project(wcam);
-    if(tv.z<1&&d<60&&d>11){
+    if(tv.z<1&&d<60&&d>(H.kind==='cat'?5:11)){
       const w=window.innerWidth,h=window.innerHeight;
       tg.style.display='block';
       tg.style.transform='translate('+((tv.x*0.5+0.5)*w)+'px,'+((-tv.y*0.5+0.5)*h)+'px) translate(-50%,-100%)';
@@ -390,7 +434,7 @@ function updWorld(dt){
   const act=$('#act');
   if(bestD<9&&!modalOpen()){
     const H=HEROES[bestI],o=heroObjs[bestI];
-    tv.set(H.x,o.y+1.7,H.z).project(wcam);
+    tv.set(H.x,o.y+(H.promptY||1.7),H.z).project(wcam);
     const w=window.innerWidth,h=window.innerHeight;
     let ax=(tv.x*0.5+0.5)*w,ay=(-tv.y*0.5+0.5)*h;
     if(tv.z>1){ax=w*0.5;ay=h*0.62}
@@ -409,11 +453,11 @@ function updWorld(dt){
 function resize(){
   const w=window.innerWidth,h=window.innerHeight,pr=pixelRatio();
   renderer.setPixelRatio(pr);renderer.setSize(w,h,false);
-  fxW.setSize(w,h,pr);fxD.setSize(w,h,pr);
+  fxW.setSize(w,h,pr);fxD.setSize(w,h,pr);if(fxC)fxC.setSize(w,h,pr);
   wcam.aspect=w/h;wcam.updateProjectionMatrix();
   dcam.aspect=w/h;
   /* keep the trunk clear of the side panel on wide screens */
-  if(w>760){dcam.setViewOffset(w,h,Math.min(120,w*0.09),0,w,h)}else{dcam.clearViewOffset()}
+  if(w>760){dcam.setViewOffset(w,h,Math.min(120,w*0.09),0,w,h)}else if(subject==='cat'){dcam.setViewOffset(w,h,0,Math.round(h*0.13),w,h)}else{dcam.clearViewOffset()}
   dcam.updateProjectionMatrix();
 }
 window.addEventListener('resize',resize);
@@ -438,7 +482,7 @@ function step(dt){
     fxW.render(dt);
   }else{
     D.update(dt,T,selected,hovered);
-    fxD.render(dt);
+    fxCur().render(dt);
   }
 }
 let perfAcc=0,perfN=0,perfT=0,autoDone=false;

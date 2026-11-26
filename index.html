@@ -46,9 +46,12 @@
 <div id="chips" class="fixed dissect-ui show" role="list"></div>
 <aside id="panel" class="fixed card dissect-ui show">
   <div class="tools">
-    <label class="tg"><input type="checkbox" id="tWater" checked><span class="d" style="background:var(--water)"></span>Air naik (xilem)</label>
-    <label class="tg"><input type="checkbox" id="tSugar" checked><span class="d" style="background:var(--sugar)"></span>Gula turun (floem)</label>
-    <label class="sl" for="sun">Matahari <input type="range" id="sun" min="0" max="100" value="65"></label>
+    <div class="tree-only tools-in">
+      <label class="tg"><input type="checkbox" id="tWater" checked><span class="d" style="background:var(--water)"></span>Air naik (xilem)</label>
+      <label class="tg"><input type="checkbox" id="tSugar" checked><span class="d" style="background:var(--sugar)"></span>Gula turun (floem)</label>
+    </div>
+    <label class="sl cat-only" for="depth">Kedalaman <input type="range" id="depth" min="0" max="100" value="0"></label>
+    <label class="sl" for="sun"><span class="tree-only">Matahari</span><span class="cat-only">Aktivitas</span> <input type="range" id="sun" min="0" max="100" value="65"></label>
     <p class="cap" id="sunCap"></p>
   </div>
   <div id="info"></div>

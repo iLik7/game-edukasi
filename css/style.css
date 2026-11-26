@@ -150,3 +150,10 @@ body.dissect .world-ui,body.dissect #tags{display:none!important}
 #loading .lbar{height:6px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden}
 #loading .lbar i{display:block;height:100%;width:4%;background:linear-gradient(90deg,#8fd16a,#e4c28b);transition:width .25s}
 #loading p{margin:12px 0 0;font-size:14px;color:#a9c4b8}
+
+.cat-only{display:none}
+body.catmode .cat-only{display:flex}
+body.catmode span.cat-only{display:inline}
+body.catmode .tree-only{display:none!important}
+.tools-in{display:flex;flex-wrap:wrap;gap:8px 14px;width:100%}
+@media (min-width:761px){body.catmode #chips{max-height:calc(100% - 150px);overflow-y:auto;padding-right:2px}}

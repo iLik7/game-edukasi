@@ -1,0 +1,93 @@
+/* Objek edukasi: KUCING (Felis catus).
+   Satu modul data: lapisan/organ, spesimen di dunia, kuis.
+   CATATAN: isi sains perlu divalidasi dokter hewan / guru biologi sebelum dipakai di sekolah.
+   Angka fisiologi adalah kisaran umum, bukan patokan diagnosis. */
+
+const LAYERS = [
+ {id:'kulit',name:'Kulit dan bulu',sci:'Integumen',ui:'#e0a56a',
+  short:'Pelindung tubuh dan pengatur suhu.',
+  what:'Kulit dan bulu adalah lapisan terluar. Bulu kucing terdiri dari bulu pelindung yang panjang dan bulu halus di bawahnya (undercoat). Kumis (vibrissae) adalah rambut peraba yang sangat peka.',
+  fn:'Melindungi dari luka, kuman, dan panas atau dingin. Bulu menjebak udara sehingga menahan panas tubuh. Kumis membantu kucing merasakan lebar celah dan gerakan udara.',
+  fact:'Suhu tubuh normal kucing sekitar 38 sampai 39 derajat Celsius, sedikit lebih hangat dari manusia. Kucing hanya sedikit berkeringat, terutama lewat telapak kaki.'},
+ {id:'otot',name:'Otot',sci:'Sistem muskuler',ui:'#d0594a',
+  short:'Penggerak tubuh lewat kontraksi.',
+  what:'Otot rangka menempel ke tulang lewat tendon. Saat otot berkontraksi (memendek), tulang ditarik dan sendi bergerak. Otot kucing panjang dan lentur, terutama di kaki belakang dan punggung.',
+  fn:'Menggerakkan tubuh untuk berjalan, melompat, dan memanjat. Otot dan tendon di kaki juga menarik cakar masuk dan keluar (cakar retraktil), sehingga cakar tetap tajam.',
+  fact:'Kucing bisa melompat beberapa kali tinggi tubuhnya, sekitar lima kali menurut banyak rujukan, berkat otot kaki belakang yang kuat.'},
+ {id:'rangka',name:'Rangka',sci:'Sistem rangka',ui:'#eae0c4',
+  short:'Kerangka penopang dan pelindung organ.',
+  what:'Rangka kucing terdiri dari sekitar 230 tulang (manusia dewasa 206). Ada tengkorak, tulang belakang dengan ruas ekor yang panjang, 13 pasang tulang rusuk, dan tulang kaki.',
+  fn:'Menopang tubuh, melindungi organ penting (otak oleh tengkorak, jantung dan paru oleh tulang rusuk), dan menjadi tempat melekatnya otot.',
+  fact:'Tulang selangka kucing sangat kecil dan tidak tersambung ke tulang lain. Itu membuat bahu lentur, jadi kucing bisa menyelip di celah sempit selama kepalanya muat.'},
+ {id:'otak',name:'Otak',sci:'Sistem saraf pusat',ui:'#e8a8b0',
+  short:'Pusat kendali dan pengolah informasi.',
+  what:'Otak berada di dalam tengkorak dan berlekuk-lekuk. Otak besar mengolah indra dan perilaku, otak kecil (cerebellum) mengatur keseimbangan dan koordinasi gerak.',
+  fn:'Menerima sinyal dari mata, telinga, hidung, kumis, dan kulit, lalu memerintahkan otot bergerak lewat saraf.',
+  fact:'Beratnya hanya sekitar 25 sampai 30 gram. Kucing melihat baik di tempat redup karena mata punya lapisan pemantul cahaya (tapetum lucidum), itulah sebabnya mata kucing tampak bersinar saat disorot lampu.'},
+ {id:'jantung',name:'Jantung',sci:'Sistem peredaran darah',ui:'#e0505e',
+  short:'Pompa yang mengalirkan darah ke seluruh tubuh.',
+  what:'Jantung kucing berbilik empat seperti jantung manusia: dua serambi (atrium) menerima darah dan dua bilik (ventrikel) memompanya keluar.',
+  fn:'Memompa darah yang membawa oksigen dan nutrisi ke seluruh tubuh, dan mengirim darah miskin oksigen ke paru-paru untuk diisi ulang.',
+  fact:'Detak jantung kucing sehat umumnya sekitar 140 sampai 220 kali per menit, jauh lebih cepat dari manusia, dan naik saat aktif atau takut. Kucing tidak bisa membuat cukup taurin sendiri, jadi harus mendapatnya dari makanan berbahan daging. Kekurangan taurin dapat merusak otot jantung.'},
+ {id:'paru',name:'Paru-paru',sci:'Sistem pernapasan',ui:'#f0a0a8',
+  short:'Tempat pertukaran oksigen dan karbon dioksida.',
+  what:'Udara masuk lewat hidung, trakea (batang tenggorok), lalu bercabang ke dalam paru-paru. Di ujung cabangnya ada kantong kecil (alveolus) tempat gas bertukar dengan darah.',
+  fn:'Mengambil oksigen dari udara ke darah dan membuang karbon dioksida. Otot diafragma dan otot antar rusuk membuat paru mengembang dan mengempis.',
+  fact:'Kucing sehat bernapas sekitar 20 sampai 30 kali per menit saat istirahat. Kucing jarang terengah-engah, jadi kucing yang bernapas terengah atau cepat saat santai perlu dibawa ke dokter hewan.'},
+ {id:'hati',name:'Hati',sci:'Sistem pencernaan dan metabolisme',ui:'#b0463c',
+  short:'Pabrik kimia tubuh: empedu, penawar racun, penyimpan nutrisi.',
+  what:'Hati adalah organ besar berwarna cokelat kemerahan di depan perut, tepat di belakang diafragma.',
+  fn:'Membuat empedu untuk membantu mencerna lemak, menetralkan zat berbahaya, menyimpan nutrisi, dan membuat protein darah.',
+  fact:'Hati kucing sulit memecah beberapa zat, sehingga banyak obat manusia, misalnya parasetamol, beracun bagi kucing. Jangan memberi obat manusia tanpa saran dokter hewan.'},
+ {id:'lambung',name:'Lambung',sci:'Sistem pencernaan',ui:'#e89a8a',
+  short:'Kantong pencerna awal dengan asam dan enzim.',
+  what:'Makanan turun dari mulut lewat kerongkongan (esofagus) menuju lambung, kantong berotot dengan dinding yang melipat.',
+  fn:'Mengaduk makanan, mencampurnya dengan asam lambung dan enzim sehingga protein mulai terurai menjadi bubur makanan (kimus).',
+  fact:'Kucing adalah karnivora obligat, artinya tubuhnya dirancang untuk makan daging. Lambungnya kecil, itu sebabnya kucing cocok makan sedikit tapi sering.'},
+ {id:'usus',name:'Usus',sci:'Sistem pencernaan',ui:'#f0b8a8',
+  short:'Menyerap nutrisi dan air, lalu membentuk tinja.',
+  what:'Usus terdiri dari usus halus yang berkelok-kelok dan usus besar yang lebih pendek dan lebih lebar, berakhir di anus.',
+  fn:'Usus halus menyerap nutrisi ke dalam darah. Usus besar menyerap air dan membentuk sisa makanan menjadi tinja.',
+  fact:'Usus kucing relatif pendek dibanding hewan pemakan tumbuhan karena daging lebih mudah dicerna. Titik kuning yang bergerak di animasi menunjukkan perjalanan makanan dari mulut sampai anus.'},
+ {id:'ginjal',name:'Ginjal',sci:'Sistem ekskresi',ui:'#a04a3a',
+  short:'Penyaring darah yang membuat urine.',
+  what:'Ada dua ginjal berbentuk kacang di bagian belakang rongga perut, dekat tulang punggung.',
+  fn:'Menyaring darah, membuang sisa metabolisme, mengatur kadar air dan garam, lalu membentuk urine.',
+  fact:'Ginjal kucing bisa membuat urine yang sangat pekat sehingga kucing tidak banyak minum. Penyakit ginjal kronis cukup sering terjadi pada kucing yang menua.'},
+ {id:'kandung',name:'Kandung kemih',sci:'Sistem ekskresi',ui:'#f0dc8a',
+  short:'Menampung urine sebelum dibuang.',
+  what:'Kandung kemih adalah kantong berdinding otot di bagian belakang perut. Urine mengalir dari ginjal ke sana lewat dua saluran (ureter).',
+  fn:'Menampung urine sementara, lalu mengeluarkannya lewat saluran uretra saat kucing buang air kecil.',
+  fact:'Pada kucing jantan, uretra lebih sempit sehingga lebih mudah tersumbat. Kucing jantan yang mengejan di kotak pasir tanpa urine keluar harus segera ditangani dokter hewan.'},
+];
+
+const SPECIMEN = {
+  id:'kucing', kind:'cat', name:'Kucing', short:'kucing', sci:'Felis catus', family:'Felidae',
+  x:-5, z:7, top:0.7, mkOff:1.1, promptY:0.55,
+  fact:'Kucing domestik termasuk keluarga Felidae, sama seperti singa dan harimau. Tubuhnya dirancang untuk berburu: refleks cepat, cakar yang bisa ditarik, mata peka cahaya redup, dan kumis peraba.',
+  hint:'Geser slider Kedalaman untuk mengupas lapisan dari kulit sampai organ dalam, atau ketuk bagian tubuh dan daftar di samping. Geser Aktivitas untuk melihat jantung dan paru bekerja lebih cepat.'
+};
+
+const QUIZ = [
+ {id:'c1',sp:'kucing',q:'Lapisan mana yang terletak paling dalam, setelah kulit, otot, dan rangka dikupas?',o:['Organ dalam seperti jantung dan paru','Bulu pelindung','Kumis','Cakar'],a:0,
+  e:'Urutannya dari luar: kulit dan bulu, otot, rangka, lalu organ dalam yang dilindungi tulang rusuk dan otot perut.'},
+ {id:'c2',sp:'kucing',q:'Jantung kucing berbilik empat. Apa tugas bilik (ventrikel)?',o:['Memompa darah keluar dari jantung','Menyimpan makanan','Menyaring urine','Membuat empedu'],a:0,
+  e:'Serambi menerima darah, bilik memompanya keluar. Bilik kanan ke paru, bilik kiri ke seluruh tubuh.'},
+ {id:'c3',sp:'kucing',q:'Kira-kira berapa detak jantung kucing sehat per menit?',o:['10 sampai 30','60 sampai 80','140 sampai 220','500 sampai 600'],a:2,
+  e:'Kisaran umumnya 140 sampai 220 kali per menit, lebih cepat daripada manusia (sekitar 60 sampai 100).'},
+ {id:'c4',sp:'kucing',q:'Apa fungsi utama paru-paru?',o:['Menukar oksigen dan karbon dioksida','Membuat empedu','Menyaring darah jadi urine','Menyerap air dari sisa makanan'],a:0,
+  e:'Di alveolus, oksigen masuk ke darah dan karbon dioksida dilepas ke udara napas.'},
+ {id:'c5',sp:'kucing',q:'Organ mana yang membuat empedu untuk membantu mencerna lemak?',o:['Hati','Ginjal','Lambung','Kandung kemih'],a:0,
+  e:'Empedu dibuat di hati lalu dialirkan ke usus halus.'},
+ {id:'c6',sp:'kucing',q:'Kucing disebut karnivora obligat. Apa artinya?',o:['Tubuhnya dirancang makan daging dan butuh zat dari daging, misalnya taurin','Hanya makan sayur','Bisa hidup tanpa makan','Makan apa saja sama baiknya'],a:0,
+  e:'Kucing tidak bisa membuat cukup taurin sendiri, jadi harus mendapatnya dari makanan berbahan daging.'},
+ {id:'c7',sp:'kucing',q:'Di mana nutrisi dari makanan terutama diserap ke dalam darah?',o:['Usus halus','Kerongkongan','Kandung kemih','Trakea'],a:0,
+  e:'Usus halus punya permukaan lipatan luas untuk menyerap nutrisi. Usus besar terutama menyerap air.'},
+ {id:'c8',sp:'kucing',q:'Apa tugas ginjal?',o:['Menyaring darah dan membentuk urine','Memompa darah','Mencerna protein','Menyimpan oksigen'],a:0,
+  e:'Ginjal membuang sisa metabolisme dan mengatur air serta garam dalam tubuh, hasilnya urine.'},
+ {id:'c9',sp:'kucing',q:'Mengapa kucing yang bernapas terengah-engah saat santai perlu dibawa ke dokter hewan?',o:['Kucing sehat jarang terengah, jadi itu bisa tanda gangguan napas atau jantung','Itu tanda kucing sedang senang','Itu cara normal kucing mendinginkan diri','Itu tanda kucing lapar'],a:0,
+  e:'Napas istirahat normal sekitar 20 sampai 30 kali per menit dan tenang. Napas terengah pada kucing perlu diperiksa.'},
+];
+
+export function vitals(act){return {bpm:Math.round(140+80*act),rr:Math.round(24+24*act)}}
+export default {id:'kucing',name:'Kucing',layers:LAYERS,specimen:SPECIMEN,quiz:QUIZ};
