@@ -571,7 +571,10 @@ function updWorld(dt){
 
   /* markers, tags, prompt */
   AN.forEach(function(a){
-    const w=a.w;w.update(dt,T,P);a.extraW.forEach(function(e){if(Math.hypot(e.x-P.x,e.z-P.z)<60)e.update(dt,T,P)});
+    /* hewan kecil disembunyikan dari jauh supaya draw call di HP tetap rendah */
+    const vis=a.spec.worldScale<0.12?(quality==='hemat'?22:34):(quality==='hemat'?45:70);
+    const w=a.w;w.update(dt,T,P);w.group.visible=Math.hypot(w.x-P.x,w.z-P.z)<vis;
+    a.extraW.forEach(function(e){const de=Math.hypot(e.x-P.x,e.z-P.z);e.group.visible=de<vis*0.8;if(e.group.visible)e.update(dt,T,P)});
     const H=HEROES[a.hi],o=heroObjs[a.hi];H.x=w.x;H.z=w.z;o.y=w.y;o.mk.position.x=w.x;o.mk.position.z=w.z;o.ring.position.set(w.x,w.y+0.04,w.z);
     /* suara hewan sesekali saat pemain dekat */
     const dx=w.x-P.x,dz=w.z-P.z,d=Math.hypot(dx,dz)||1;

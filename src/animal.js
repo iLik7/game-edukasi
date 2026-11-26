@@ -108,6 +108,8 @@ export function buildWorldAnimal(scene, env, spec, home, seed = 404, bounds = nu
   const A = assemble(spec, spec.bodyParts(1), spec.skinMats(), 'kulit');
   if (spec.face) spec.face(A, spec.pivots.head);
   A.root.scale.setScalar(S);
+  /* di dunia hanya badan yang membuat bayangan (hewan sangat kecil: tanpa bayangan) supaya draw call hemat */
+  A.root.traverse((o) => { if (o.isMesh || o.isLineSegments) o.castShadow = S >= 0.05 && o === A.meshes[0]; });
   const wrap = new THREE.Group(); wrap.add(A.root); scene.add(wrap);
   const hit = new THREE.Mesh(new THREE.SphereGeometry(spec.hitR, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
   scene.add(hit);
