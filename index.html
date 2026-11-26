@@ -13,6 +13,7 @@
 </head>
 <body>
 <canvas id="view"></canvas>
+<div id="loading"><div class="lbox"><h1>Hutan Ilmu</h1><div class="lbar"><i id="loadBar"></i></div><p id="loadTxt">Memuat dunia…</p></div></div>
 <div id="tags"></div>
 
 <!-- world HUD -->
@@ -24,11 +25,12 @@
 </div>
 <div id="topRight" class="fixed world-ui show">
   <span id="clock"><i></i><span id="clockTxt">07:00</span></span>
+  <button class="btn" id="bQual" type="button" title="Ganti kualitas grafik"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg><span>Grafik</span></button>
   <button class="btn" id="bJournal" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5"/><path d="M9 8h6"/></svg>Jurnal</button>
   <button class="btn" id="bQuizW" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"/><path d="M12 17h.01"/></svg>Kuis</button>
 </div>
 <div id="tip" class="fixed card world-ui show">
-  Jalan dengan WASD atau tombol panah, Shift untuk lari, seret layar untuk memutar kamera. Dekati pohon yang bertanda lalu klik pohonnya atau tekan E.
+  Jalan dengan WASD atau tombol panah, Shift untuk lari, seret layar untuk melihat sekitar. Ikuti jalan setapak ke pohon bertanda, lalu klik pohonnya atau tekan E.
   <button type="button" id="tipX" aria-label="Tutup petunjuk">&times;</button>
 </div>
 <button id="act" class="fixed btn primary world-ui show" type="button">Bedah pohon</button>
@@ -58,8 +60,6 @@
 <div id="modal" role="dialog" aria-modal="true"><div id="sheet"></div></div>
 <div id="nogl"><div><h2 style="font:700 24px var(--f-display);margin:0 0 8px">Grafik 3D tidak bisa dijalankan</h2><p style="color:var(--muted);margin:0">Peramban atau perangkat ini belum mendukung WebGL. Coba peramban lain atau perbarui perangkat.</p></div></div>
 
-<script src="js/vendor/three.min.js"></script>
-<script src="js/objects/pohon.js"></script>
-<script src="js/game.js"></script>
+<script type="module" src="dist/game.js"></script>
 </body>
 </html>

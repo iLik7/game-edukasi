@@ -132,3 +132,12 @@ body.dissect .world-ui,body.dissect #tags{display:none!important}
   #dQuiz{top:calc(env(safe-area-inset-top,0px) + 12px)}
 }
 @media (prefers-reduced-motion:reduce){#fade,#toast,.bar i{transition:none}}
+
+/* loading */
+#loading{position:fixed;inset:0;z-index:100;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 40%,#1f4a42,#06100d);color:#e8f5ee;transition:opacity .6s}
+#loading.done{opacity:0;pointer-events:none}
+#loading .lbox{width:min(360px,80vw);text-align:center}
+#loading h1{font:700 34px var(--f-display);margin:0 0 18px;letter-spacing:.5px}
+#loading .lbar{height:6px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden}
+#loading .lbar i{display:block;height:100%;width:4%;background:linear-gradient(90deg,#8fd16a,#e4c28b);transition:width .25s}
+#loading p{margin:12px 0 0;font-size:14px;color:#a9c4b8}

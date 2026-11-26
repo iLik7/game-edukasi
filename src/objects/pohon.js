@@ -1,11 +1,7 @@
 /* Objek edukasi: POHON.
    Satu objek = satu modul data: lapisan, spesimen di dunia, dan kuis.
    Objek baru (daun, sel, simulasi kerja) cukup dibuat seperti file ini
-   lalu didaftarkan di index.html. */
-(function(){
-'use strict';
-window.HI=window.HI||{};
-window.HI.objects=window.HI.objects||{};
+   lalu didaftarkan di src/main.js. */
 
 /* ---------------- content ---------------- */
 const LAYERS=[
@@ -64,5 +60,4 @@ const QUIZ=[
   e:'Floem ikut terkelupas, jadi gula dari daun tidak sampai ke akar. Xilem masih mengangkut air untuk sementara, tetapi akar yang kelaparan akhirnya membuat pohon mati.'}
 ];
 
-window.HI.objects.pohon={id:'pohon',name:'Pohon',layers:LAYERS,specimens:HEROES,quiz:QUIZ};
-})();
+export default {id:'pohon',name:'Pohon',layers:LAYERS,specimens:HEROES,quiz:QUIZ};

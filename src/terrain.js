@@ -1,0 +1,153 @@
+import * as THREE from 'three';
+import { TAU, clamp, lerp, smooth, rng } from './util.js';
+import grassUrl from '../node_modules/@dgreenheck/ez-tree/src/app/public/grass.jpg';
+import dirtUrl from '../node_modules/@dgreenheck/ez-tree/src/app/public/dirt_color.jpg';
+import dirtNUrl from '../node_modules/@dgreenheck/ez-tree/src/app/public/dirt_normal.jpg';
+
+export const WATER = -1.4, SIZE = 240, SEG = 220;
+export const LAKE = { x: -34, z: 26, r: 15 };
+export const START = { x: 0, z: 2 };
+
+function baseH(x, z) { return Math.sin(x * 0.045 + 1.3) * Math.cos(z * 0.038) * 2.0 + Math.sin(x * 0.1 + z * 0.08) * 0.5 + Math.cos(x * 0.02 - z * 0.03) * 1.5; }
+export function heightAt(x, z) {
+  let h = baseH(x, z);
+  h *= smooth(9, 26, Math.hypot(x, z));
+  const dl = Math.hypot(x - LAKE.x, z - LAKE.z);
+  if (dl < LAKE.r + 9) h = lerp(h, -3.3, 1 - smooth(LAKE.r * 0.3, LAKE.r + 9, dl));
+  return h;
+}
+export function hash(x, z) { const s = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453; return s - Math.floor(s); }
+
+/* jalan setapak dari titik awal ke tiap pohon bertanda (rumus sama di GLSL) */
+export const paths = [];
+export function setPaths(heroes) {
+  paths.length = 0;
+  heroes.forEach((H, i) => {
+    const dx = H.x - START.x, dz = H.z - START.z, L = Math.hypot(dx, dz);
+    paths.push({ ax: START.x, az: START.z, bx: H.x, bz: H.z, L, dx: dx / L, dz: dz / L, seed: i * 1.7 + 0.3 });
+  });
+}
+export function pathDist(x, z) {
+  let best = 1e9;
+  for (const p of paths) {
+    const px = x - p.ax, pz = z - p.az;
+    const t = clamp((px * p.dx + pz * p.dz) / p.L, 0, 1);
+    const w = Math.sin(t * p.L * 0.17 + p.seed) * 1.3 * Math.sin(Math.PI * t);
+    const qx = p.ax + p.dx * t * p.L - p.dz * w, qz = p.az + p.dz * t * p.L + p.dx * w;
+    best = Math.min(best, Math.hypot(x - qx, z - qz));
+  }
+  return best;
+}
+export const PATH_W = 1.25;
+
+export const GLSL_TERRAIN = /* glsl */`
+float tS(float a,float b,float x){ float t=clamp((x-a)/(b-a),0.,1.); return t*t*(3.-2.*t); }
+float tBase(vec2 p){ return sin(p.x*0.045+1.3)*cos(p.y*0.038)*2.0 + sin(p.x*0.1+p.y*0.08)*0.5 + cos(p.x*0.02-p.y*0.03)*1.5; }
+float tHeight(vec2 p){ float h=tBase(p)*tS(9.,26.,length(p)); float dl=length(p-vec2(${LAKE.x}.,${LAKE.z}.)); if(dl<${LAKE.r + 9}.) h=mix(h,-3.3,1.-tS(${LAKE.r * 0.3},${LAKE.r + 9}.,dl)); return h; }
+uniform vec4 uPath[8]; uniform vec3 uPathP[8]; uniform int uPathN;
+float tPath(vec2 p){
+  float best=1e9;
+  for(int i=0;i<8;i++){ if(i>=uPathN) break;
+    vec2 a=uPath[i].xy, d=uPath[i].zw; float L=uPathP[i].x, sd=uPathP[i].y;
+    vec2 q=p-a; float t=clamp(dot(q,d)/L,0.,1.);
+    float w=sin(t*L*0.17+sd)*1.3*sin(3.14159265*t);
+    vec2 c=a+d*t*L+vec2(-d.y,d.x)*w; best=min(best,length(p-c)); }
+  return best;
+}
+`;
+
+export function pathUniforms() {
+  const A = [], B = [];
+  for (let i = 0; i < 8; i++) {
+    const p = paths[i];
+    A.push(p ? new THREE.Vector4(p.ax, p.az, p.dx, p.dz) : new THREE.Vector4());
+    B.push(p ? new THREE.Vector3(p.L, p.seed, 0) : new THREE.Vector3(1, 0, 0));
+  }
+  return { uPath: { value: A }, uPathP: { value: B }, uPathN: { value: paths.length } };
+}
+
+function loadTex(url, srgb, repeat) {
+  const t = new THREE.TextureLoader().load(url);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.anisotropy = 8;
+  if (srgb) t.colorSpace = THREE.SRGBColorSpace;
+  if (repeat) t.repeat.set(repeat, repeat);
+  return t;
+}
+
+export function buildTerrain(scene) {
+  const g = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); g.rotateX(-Math.PI / 2);
+  const pos = g.attributes.position, n = pos.count;
+  const col = new Float32Array(n * 3), mix = new Float32Array(n * 2);
+  const c = new THREE.Color();
+  const hs = new Float32Array(n);
+  for (let i = 0; i < n; i++) { const h = heightAt(pos.getX(i), pos.getZ(i)); hs[i] = h; pos.setY(i, h); }
+  for (let i = 0; i < n; i++) {
+    const x = pos.getX(i), z = pos.getZ(i), h = hs[i];
+    const e = 0.8;
+    const sx = heightAt(x + e, z) - heightAt(x - e, z), sz = heightAt(x, z + e) - heightAt(x, z - e);
+    const slope = Math.hypot(sx, sz) / (2 * e);
+    const macro = Math.sin(x * 0.07 + 1.3) * Math.sin(z * 0.06) * 0.5 + 0.5;
+    const patch = Math.sin(x * 0.31) * Math.sin(z * 0.27 + 2.0) * 0.5 + 0.5;
+    let dirt = smooth(0.28, 0.6, slope) + smooth(0.78, 0.95, patch) * 0.45;
+    dirt = Math.max(dirt, 1 - smooth(PATH_W * 0.45, PATH_W * 1.05, pathDist(x, z)));
+    const sand = 1 - smooth(WATER + 0.1, WATER + 0.75, h);
+    mix[i * 2] = clamp(dirt, 0, 1) * (1 - sand); mix[i * 2 + 1] = sand;
+    // variasi warna makro rumput (kuning-hijau <-> hijau tua)
+    c.setRGB(0.80 + macro * 0.28, 0.9 + macro * 0.22 - patch * 0.05, 0.62 + macro * 0.14);
+    c.multiplyScalar((0.92 + hash(x, z) * 0.16) * 1.9);
+    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+  g.setAttribute('aMix', new THREE.BufferAttribute(mix, 2));
+  g.computeVertexNormals();
+
+  const grass = loadTex(grassUrl, true, SIZE / 4.5);
+  const dirt = loadTex(dirtUrl, true, 1);
+  const dirtN = loadTex(dirtNUrl, false, SIZE / 4.5);
+  const mat = new THREE.MeshStandardMaterial({ map: grass, normalMap: dirtN, normalScale: new THREE.Vector2(0.55, 0.55), vertexColors: true, roughness: 0.96, metalness: 0 });
+  mat.onBeforeCompile = (sh) => {
+    sh.uniforms.uDirt = { value: dirt };
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aMix; varying vec2 vMix;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMix = aMix;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uDirt; varying vec2 vMix;')
+      .replace('#include <map_fragment>', `#include <map_fragment>
+        vec4 g2 = texture2D(map, vMapUv * 0.23 + vec2(0.31, 0.67));
+        diffuseColor.rgb = mix(diffuseColor.rgb, g2.rgb * 1.05, 0.38);
+        vec4 dc = texture2D(uDirt, vMapUv * 0.8);
+        diffuseColor.rgb = mix(diffuseColor.rgb, dc.rgb * vec3(1.0, 0.86, 0.7) * 1.1, vMix.x);
+        diffuseColor.rgb = mix(diffuseColor.rgb, dc.rgb * vec3(1.55, 1.38, 1.0), vMix.y);`);
+  };
+  const mesh = new THREE.Mesh(g, mat);
+  mesh.receiveShadow = true; scene.add(mesh);
+  return mesh;
+}
+
+/* normal map riak air (prosedural, bisa diulang) */
+function waterNormals() {
+  const N = 256, c = document.createElement('canvas'); c.width = c.height = N;
+  const x = c.getContext('2d'), img = x.createImageData(N, N);
+  const h = new Float32Array(N * N);
+  const waves = [[3, 2, 1.0, 0.0], [5, -4, 0.7, 1.3], [-7, 6, 0.45, 2.1], [11, 9, 0.28, 0.7], [-14, 5, 0.2, 3.3]];
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    let v = 0; for (const w of waves) v += Math.sin((i * w[0] + j * w[1]) / N * TAU + w[3]) * w[2];
+    h[j * N + i] = v;
+  }
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const dx = h[j * N + (i + 1) % N] - h[j * N + (i + N - 1) % N], dy = h[((j + 1) % N) * N + i] - h[((j + N - 1) % N) * N + i];
+    let nx = -dx * 0.5, ny = -dy * 0.5, nz = 1; const l = Math.hypot(nx, ny, nz); nx /= l; ny /= l; nz /= l;
+    const k = (j * N + i) * 4; img.data[k] = (nx * 0.5 + 0.5) * 255; img.data[k + 1] = (ny * 0.5 + 0.5) * 255; img.data[k + 2] = (nz * 0.5 + 0.5) * 255; img.data[k + 3] = 255;
+  }
+  x.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(SIZE / 7, SIZE / 7); t.anisotropy = 8; return t;
+}
+export function buildWater(scene) {
+  const nm = waterNormals();
+  const mat = new THREE.MeshStandardMaterial({ color: new THREE.Color(0.05, 0.2, 0.22), roughness: 0.04, metalness: 0.0, transparent: true, opacity: 0.86, normalMap: nm, normalScale: new THREE.Vector2(0.6, 0.6), envMapIntensity: 1.4 });
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(SIZE, SIZE), mat);
+  m.rotation.x = -Math.PI / 2; m.position.y = WATER; m.userData.noAO = true; scene.add(m);
+  return {
+    mesh: m,
+    update(T) { nm.offset.set(T * 0.012, T * 0.007); m.position.y = WATER + Math.sin(T * 0.8) * 0.03; },
+  };
+}
