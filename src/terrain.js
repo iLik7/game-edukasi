@@ -39,6 +39,7 @@ export function pathDist(x, z) {
   return best;
 }
 export const PATH_W = 1.25;
+export const terrainU = { uTime: { value: 0 } };
 
 export const GLSL_TERRAIN = /* glsl */`
 float tS(float a,float b,float x){ float t=clamp((x-a)/(b-a),0.,1.); return t*t*(3.-2.*t); }
@@ -107,16 +108,30 @@ export function buildTerrain(scene) {
   const dirtN = loadTex(dirtNUrl, false, SIZE / 4.5);
   const mat = new THREE.MeshStandardMaterial({ map: grass, normalMap: dirtN, normalScale: new THREE.Vector2(0.55, 0.55), vertexColors: true, roughness: 0.96, metalness: 0 });
   mat.onBeforeCompile = (sh) => {
-    sh.uniforms.uDirt = { value: dirt };
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aMix; varying vec2 vMix;')
-      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMix = aMix;');
-    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nuniform sampler2D uDirt; varying vec2 vMix;')
+    sh.uniforms.uDirt = { value: dirt }; sh.uniforms.uTime = terrainU.uTime;
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aMix; varying vec2 vMix; varying vec3 vWPt;')
+      .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMix = aMix; vWPt = (modelMatrix * vec4(transformed, 1.0)).xyz;');
+    sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
+        uniform sampler2D uDirt; uniform float uTime; varying vec2 vMix; varying vec3 vWPt;
+        float caust(vec2 p, float t){
+          vec2 q = p * 0.85; float c = 0.0;
+          for (int i = 0; i < 3; i++) {
+            q += vec2(sin(q.y * 1.7 + t * 0.9), cos(q.x * 1.3 - t * 0.7)) * 0.55;
+            c += abs(sin(q.x + q.y * 0.6 + t * 0.4));
+          }
+          return pow(1.0 - c / 3.0, 5.0) * 3.0;
+        }`)
       .replace('#include <map_fragment>', `#include <map_fragment>
         vec4 g2 = texture2D(map, vMapUv * 0.23 + vec2(0.31, 0.67));
         diffuseColor.rgb = mix(diffuseColor.rgb, g2.rgb * 1.05, 0.38);
         vec4 dc = texture2D(uDirt, vMapUv * 0.8);
         diffuseColor.rgb = mix(diffuseColor.rgb, dc.rgb * vec3(1.0, 0.86, 0.7) * 1.1, vMix.x);
-        diffuseColor.rgb = mix(diffuseColor.rgb, dc.rgb * vec3(1.55, 1.38, 1.0), vMix.y);`);
+        diffuseColor.rgb = mix(diffuseColor.rgb, dc.rgb * vec3(1.55, 1.38, 1.0), vMix.y);
+        { float uw = ${WATER.toFixed(2)} - vWPt.y;            // dasar danau: lebih gelap-kehijauan + kaustik
+          if (uw > 0.0) {
+            diffuseColor.rgb *= mix(vec3(1.0), vec3(0.45, 0.68, 0.64), clamp(uw * 0.55, 0.0, 1.0));
+            diffuseColor.rgb += caust(vWPt.xz, uTime) * 0.22 * exp(-uw * 0.35) * vec3(0.75, 1.0, 0.92);
+          } }`);
   };
   const mesh = new THREE.Mesh(g, mat);
   mesh.receiveShadow = true; scene.add(mesh);
@@ -143,21 +158,29 @@ function waterNormals() {
 }
 export function buildWater(scene) {
   const nm = waterNormals(); nm.repeat.set(1, 1);
-  const uni = { uTime: { value: 0 }, uWN: { value: nm } };
-  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.05, metalness: 0.0, transparent: true, depthWrite: false, envMapIntensity: 1.5 });
+  const rip = Array.from({ length: 8 }, () => new THREE.Vector4(0, 0, -99, 0)); let ri = 0;
+  const uni = { uTime: { value: 0 }, uWN: { value: nm }, uRip: { value: rip } };
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.05, metalness: 0.0, transparent: true, depthWrite: false, envMapIntensity: 1.5, side: THREE.DoubleSide });
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uni);
     sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nvarying vec3 vWP;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvWP = (modelMatrix * vec4(position,1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-        varying vec3 vWP; uniform float uTime; uniform sampler2D uWN;
+        varying vec3 vWP; uniform float uTime; uniform sampler2D uWN; uniform vec4 uRip[8];
+        vec3 ripple(vec2 p){ vec3 o = vec3(0.0);
+          for (int i = 0; i < 8; i++) { float age = uTime - uRip[i].z; if (age < 0.0 || age > 3.0) continue;
+            vec2 dv = p - uRip[i].xy; float d = length(dv) + 1e-4, R = 0.25 + age * 1.25;
+            float w = exp(-pow((d - R) * 4.0, 2.0)) * (1.0 - age / 3.0) * uRip[i].w;
+            o.xy += dv / d * sin((d - R) * 22.0) * w * 1.6; o.z += w; }
+          return o; }
         ${GLSL_TERRAIN}
         vec3 wNorm(vec2 p){
           vec3 a = texture2D(uWN, p/7.0 + vec2(uTime*0.020, uTime*0.012)).xyz*2.-1.;
           vec3 b = texture2D(uWN, vec2(p.y,-p.x)/3.1 + vec2(-uTime*0.028, uTime*0.019)).xyz*2.-1.;
           vec3 c = texture2D(uWN, p/1.7 + vec2(uTime*0.05, -uTime*0.04)).xyz*2.-1.;
-          return vec3(a.xy*0.55 + b.xy*0.45 + c.xy*0.22, 1.0);
+          vec3 r = ripple(p);
+          return vec3(a.xy*0.55 + b.xy*0.45 + c.xy*0.22 + r.xy, r.z);
         }`)
       .replace('#include <map_fragment>', `#include <map_fragment>
         float wd = ${WATER.toFixed(2)} - tHeight(vWP.xz);   // kedalaman air di titik ini (m)
@@ -165,21 +188,24 @@ export function buildWater(scene) {
         float dz = clamp(wd, 0.0, 4.0);
         vec3 shallow = vec3(0.10, 0.34, 0.30), deep = vec3(0.012, 0.075, 0.105);
         diffuseColor.rgb = mix(shallow, deep, 1.0 - exp(-dz * 0.55));
-        float aW = mix(0.10, 0.94, smoothstep(0.0, 1.1, dz));
+        float aW = mix(0.10, 0.84, smoothstep(0.0, 1.4, dz));
         vec3 wn0 = wNorm(vWP.xz);
         float foam = (1.0 - smoothstep(0.0, 0.42, wd + (wn0.x + wn0.y) * 0.10 + 0.04*sin(uTime*1.3 + vWP.x*2.0)));
         foam *= 0.55 + 0.45 * (texture2D(uWN, vWP.xz*0.35 + uTime*0.01).x);
+        foam += clamp(wn0.z, 0.0, 1.0) * 0.12;   // buih riak
         diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.92, 0.96, 0.95), clamp(foam, 0.0, 1.0) * 0.85);
-        diffuseColor.a = clamp(max(aW, foam * 0.95), 0.0, 1.0);`)
+        diffuseColor.a = clamp(max(aW, foam * 0.95), 0.0, 1.0);
+        if (!gl_FrontFacing) { diffuseColor.rgb = vec3(0.10, 0.30, 0.32); diffuseColor.a = 0.88; }`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         { vec3 wn = wNorm(vWP.xz); float calm = 1.0 - clamp(foam, 0.0, 1.0) * 0.6;
           vec3 nW = normalize(vec3(wn.x * 0.35 * calm, 1.0, wn.y * 0.35 * calm));
-          normal = normalize((viewMatrix * vec4(nW, 0.0)).xyz); }`);
+          normal = normalize((viewMatrix * vec4(nW * (gl_FrontFacing ? 1.0 : -1.0), 0.0)).xyz); }`);
   };
   const m = new THREE.Mesh(new THREE.PlaneGeometry(SIZE, SIZE), mat);
   m.rotation.x = -Math.PI / 2; m.position.y = WATER; m.userData.noAO = true; scene.add(m);
   return {
     mesh: m,
-    update(T) { uni.uTime.value = T; },
+    update(T) { uni.uTime.value = T; terrainU.uTime.value = T; },
+    ripple(x, z, s) { rip[ri].set(x, z, uni.uTime.value, s); ri = (ri + 1) % rip.length; },
   };
 }

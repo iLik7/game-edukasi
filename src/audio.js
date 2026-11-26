@@ -1,13 +1,14 @@
 /* Suara lingkungan prosedural (Web Audio, tanpa file aset): angin, burung, jangkrik malam, dan meong kucing.
    AudioContext baru dibuat setelah interaksi pertama pemain (aturan autoplay browser). */
 export function createAudio() {
-  let ctx = null, master = null, windG = null, windF = null, leafG = null, cricG = null, purrG = null, noiseBuf = null;
+  let ctx = null, master = null, lp = null, under = false, windG = null, windF = null, leafG = null, cricG = null, purrG = null, noiseBuf = null;
   let on = true, vol = 0.8, nextBird = 3, birdFlock = 0, nextMeow = 6, t = 0;
 
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
-    ctx = new AC(); master = ctx.createGain(); master.gain.value = on ? vol : 0; master.connect(ctx.destination);
+    ctx = new AC(); master = ctx.createGain(); master.gain.value = on ? vol : 0;
+    lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 20000; lp.Q.value = 0.7; master.connect(lp); lp.connect(ctx.destination);
     const n = ctx.sampleRate * 3; noiseBuf = ctx.createBuffer(1, n, ctx.sampleRate); const d = noiseBuf.getChannelData(0);
     let b0 = 0, b1 = 0, b2 = 0; for (let i = 0; i < n; i++) { const w = Math.random() * 2 - 1; b0 = 0.99765 * b0 + w * 0.099; b1 = 0.963 * b1 + w * 0.2965; b2 = 0.57 * b2 + w * 1.0526; d[i] = (b0 + b1 + b2 + w * 0.1848) * 0.2; }
     const src = (type, f, q) => { const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.loopStart = Math.random() * 2; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q; const g = ctx.createGain(); g.gain.value = 0; s.connect(fl); fl.connect(g); g.connect(master); s.start(); return { g, fl }; };
@@ -51,23 +52,48 @@ export function createAudio() {
     o.connect(f1); o.connect(f2); const mix = ctx.createGain(); mix.gain.value = 0.55; f1.connect(mix); f2.connect(mix); mix.connect(g); g.connect(p); p.connect(master); o.start(at); o.stop(at + dur + 0.05);
   }
 
+  /* cipratan: semburan derau + dentum rendah + tetesan */
+  function noiseHit(at, f, q, dur, vl, type = 'bandpass', pn = 0) {
+    const s2 = ctx.createBufferSource(); s2.buffer = noiseBuf; const fl = ctx.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q;
+    const g = ctx.createGain(), p = pan(pn); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vl, at + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    s2.connect(fl); fl.connect(g); g.connect(p); p.connect(master); s2.start(at, Math.random() * 2); s2.stop(at + dur + 0.05);
+  }
+  function splash(size, vl = 1) {
+    if (!ctx || !on) return; const at = ctx.currentTime + 0.01;
+    if (size >= 2) {
+      noiseHit(at, 900, 0.6, 0.9, 0.5 * vl); noiseHit(at + 0.03, 2600, 0.8, 0.6, 0.25 * vl, 'highpass');
+      const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(140, at); o.frequency.exponentialRampToValueAtTime(45, at + 0.35);
+      g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.35 * vl, at + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.4); o.connect(g); g.connect(master); o.start(at); o.stop(at + 0.45);
+      for (let i = 0; i < 7; i++) drip(at + 0.25 + Math.random() * 0.9, 0.05 * vl);
+    } else if (size >= 1) { noiseHit(at, 1400, 0.9, 0.35, 0.22 * vl); noiseHit(at + 0.02, 3200, 1, 0.2, 0.08 * vl, 'highpass'); drip(at + 0.15, 0.03 * vl); }
+    else { noiseHit(at, 1100 + Math.random() * 600, 1.2, 0.18, 0.12 * vl); }
+  }
+  function drip(at, vl) {
+    const o = ctx.createOscillator(), g = ctx.createGain(), f = 900 + Math.random() * 1500; o.type = 'sine';
+    o.frequency.setValueAtTime(f, at); o.frequency.exponentialRampToValueAtTime(f * 2.2, at + 0.05);
+    g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vl, at + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.07);
+    o.connect(g); g.connect(master); o.start(at); o.stop(at + 0.09);
+  }
+  function bubbles(n = 6, vl = 0.05) { if (!ctx || !on) return; const at = ctx.currentTime; for (let i = 0; i < n; i++) { const t0 = at + i * (0.04 + Math.random() * 0.08), f = 250 + Math.random() * 500; const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(f, t0); o.frequency.exponentialRampToValueAtTime(f * 2.5, t0 + 0.06); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vl, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.08); o.connect(g); g.connect(master); o.start(t0); o.stop(t0 + 0.1); } }
+  function setUnder(b) { if (!ctx || b === under) return; under = b; lp.frequency.setTargetAtTime(b ? 520 : 20000, ctx.currentTime, 0.12); }
+
   function ramp(g, v, tc = 0.6) { g.gain.setTargetAtTime(v, ctx.currentTime, tc); }
 
   return {
     init,
     get enabled() { return on; },
     setEnabled(v) { on = v; if (ctx) master.gain.setTargetAtTime(on ? vol : 0, ctx.currentTime, 0.1); },
-    meow,
+    meow, splash, bubbles, setUnder,
     /* s: {day 0..1, world bool, catSub bool, catDist m, catPan -1..1} */
     update(dt, s) {
       if (!ctx || !on) return; t += dt;
-      const inW = s.world ? 1 : 0.25;
+      const inW = (s.world ? 1 : 0.25) * (s.under ? 0.25 : 1);
       const gust = 0.5 + 0.5 * Math.sin(t * 0.23) * Math.sin(t * 0.071 + 1.3);
       ramp(windG, (0.05 + 0.1 * gust) * inW); windF.frequency.setTargetAtTime(260 + 420 * gust, ctx.currentTime, 0.8);
       ramp(leafG, (0.004 + 0.02 * gust * gust) * inW * (0.4 + 0.6 * s.day));
       ramp(cricG, 0.012 * Math.max(0, 1 - s.day * 2.2) * inW);
       ramp(purrG, s.catSub ? 0.22 : 0, 0.4);
-      if (s.world && s.day > 0.35) {
+      if (s.world && !s.under && s.day > 0.35) {
         nextBird -= dt;
         if (nextBird <= 0) { bird(0.035 + Math.random() * 0.03); if (birdFlock > 0) { birdFlock--; nextBird = 0.4 + Math.random() * 0.9; } else { birdFlock = Math.random() < 0.3 ? 2 + Math.floor(Math.random() * 3) : 0; nextBird = 3 + Math.random() * 7; } }
       }

@@ -108,7 +108,7 @@ export function createSky(scene, renderer) {
       sun.shadow.mapSize.set(px, px);
       if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
     },
-    update(tDay, T, dt, focus) {
+    update(tDay, T, dt, focus, under) {
       const a = (tDay - 0.25) * TAU, elev = Math.sin(a);
       const day = smooth(-0.12, 0.3, elev), twi = Math.exp(-Math.pow(elev / 0.2, 2));
       api.day = day; api.elev = elev;
@@ -127,12 +127,18 @@ export function createSky(scene, renderer) {
       U.uBelow.value.copy(U.uHorizon.value);
 
       scene.fog.color.copy(U.uHorizon.value);
+      /* bawah air: kabut pekat hijau-biru, langit disembunyikan */
+      if (under) {
+        scene.fog.color.setRGB(0.012, 0.06, 0.065).multiplyScalar(0.25 + 0.75 * day);
+        scene.fog.density = 0.11; dome.visible = false; stars.visible = false; moon.visible = false;
+        scene.background = scene.fog.color;
+      } else { scene.fog.density = 0.0155; dome.visible = true; stars.visible = true; scene.background = null; }
       scene.environmentIntensity = 0.42 + 0.85 * day;
 
       const cx = focus.x, cy = focus.y, cz = focus.z;
       dome.position.set(cx, cy, cz);
       stars.position.set(cx, 0, cz); stars.material.opacity = Math.pow(1 - day, 2) * 0.95;
-      moon.position.set(cx - sunDir.x * 700, cy - sunDir.y * 700, cz - sunDir.z * 700); moon.visible = elev < 0.1;
+      moon.position.set(cx - sunDir.x * 700, cy - sunDir.y * 700, cz - sunDir.z * 700); moon.visible = elev < 0.1 && !under;
 
       /* matahari/bulan mengikuti pemain, dibulatkan agar bayangan tidak berkedip */
       const sx = Math.round(cx * 2) / 2, sz = Math.round(cz * 2) / 2;

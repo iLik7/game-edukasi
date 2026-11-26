@@ -9,6 +9,7 @@ import { buildDissect } from './dissect.js';
 import CAT from './objects/kucing.js';
 import { buildWorldCat, buildCatDissect, vitals } from './cat.js';
 import { createAudio } from './audio.js';
+import { createSplash } from './splash.js';
 
 (async function(){
 'use strict';
@@ -69,6 +70,7 @@ const wcam=new THREE.PerspectiveCamera(66,1,0.15,1200);wcam.rotation.order='YXZ'
 const sky=createSky(world,renderer);
 buildTerrain(world);
 const water=buildWater(world);
+const splash=createSplash(world,WATER);
 
 /* obstacles */
 const GRID=8,grid=new Map();
@@ -97,7 +99,7 @@ const catW=buildWorldCat(world,{heightAt:heightAt,WATER:WATER},{x:CAT.specimen.x
   heroObjs.push({g:catW.group,mk:mk,ring:ring,y:catW.y});
 }
 
-const P={x:0,z:2,y:0,face:Math.PI,phase:0,jh:0,jv:0};
+const P={x:0,z:2,y:0,face:Math.PI,phase:0,jh:0,jv:0,swim:false,ey:0,eyeS:0,wet:false,under:false,step:0,stroke:0,bub:0};
 P.y=heightAt(P.x,P.z);
 const cam={yaw:0,pitch:-0.04,fov:66};
 let zoomT=1,zoomC=1;
@@ -279,7 +281,7 @@ $('#tipX').addEventListener('click',hideTip);
 setTimeout(hideTip,20000);
 
 /* ================= input ================= */
-let keys={},jumpReq=false;
+let keys={},jumpReq=false,upHold=false;
 const joy={x:0,y:0};
 if(isTouch)document.body.classList.add('touch');
 window.addEventListener('keydown',function(e){
@@ -288,7 +290,7 @@ window.addEventListener('keydown',function(e){
   if(k==='escape'){if(modalOpen())closeModal();else if(mode==='dissect')exitDissect();return}
   if(modalOpen())return;
   if(mode==='world'){
-    if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','shift'].indexOf(k)>=0){keys[k]=true;e.preventDefault()}
+    if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','shift',' ','c','control'].indexOf(k)>=0){keys[k]=true;e.preventDefault()}
     if(k==='e')tryInteract();
     if(k==='+'||k==='=')zoomBy(0.8);
     if(k==='-'||k==='_')zoomBy(1.25);
@@ -390,13 +392,19 @@ $('#zIn').addEventListener('click',function(){zoomBy(0.78)});
 $('#zOut').addEventListener('click',function(){zoomBy(1.28)});
 $('#bSnd').addEventListener('click',function(){audio.init();audio.setEnabled(!audio.enabled);try{localStorage.setItem(SKEY,audio.enabled?'1':'0')}catch(e){}sndLabel();if(audio.enabled)audio.meow(0.08,0)});
 sndLabel();
-$('#jump').addEventListener('pointerdown',function(e){e.preventDefault();jumpReq=true});
+$('#jump').addEventListener('pointerdown',function(e){e.preventDefault();jumpReq=true;upHold=true});
+['pointerup','pointercancel','pointerleave'].forEach(function(ev){$('#jump').addEventListener(ev,function(){upHold=false})});
 
 
 /* ================= loop ================= */
 const tags=HEROES.map(function(H){const d=document.createElement('div');d.className='tag';$('#tags').appendChild(d);return d});
 const tv=new THREE.Vector3();
 let nearAcc=0;
+/* tetes air di lensa kamera */
+function screenDrops(n){
+  const box=$('#drops');if(!box||window.matchMedia('(prefers-reduced-motion:reduce)').matches)return;
+  for(let i=0;i<n;i++){const d=document.createElement('i');const s=18+Math.random()*46;d.style.width=d.style.height=s+'px';d.style.left=(Math.random()*100)+'%';d.style.top=(Math.random()*85)+'%';d.style.animationDelay=(Math.random()*0.15)+'s';box.appendChild(d);setTimeout(function(){d.remove()},1900)}
+}
 function updWorld(dt){
   const kx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
   const ky=(keys.w||keys.arrowup?1:0)-(keys.s||keys.arrowdown?1:0);
@@ -404,26 +412,60 @@ function updWorld(dt){
   const fx=-Math.sin(cam.yaw),fz=-Math.cos(cam.yaw),rx=Math.cos(cam.yaw),rz=-Math.sin(cam.yaw);
   const mx=fx*iy+rx*ix,mz=fz*iy+rz*ix,mag=Math.min(1,Math.hypot(mx,mz));
   let speedNow=0;
+  const dep0=WATER-heightAt(P.x,P.z);
   if(mag>0.06){
     const L=Math.hypot(mx,mz),dx=mx/L,dz=mz/L;
     const run=keys.shift||(joy.x*joy.x+joy.y*joy.y>0.72);
-    speedNow=(run?8.2:4.6)*mag;
+    if(P.swim)speedNow=(run?3.6:2.3)*mag;
+    else{speedNow=(run?8.2:4.6)*mag;if(dep0>0)speedNow*=1-0.55*clamp(dep0/1.3,0,1)}  /* air memperlambat langkah */
     const nx=P.x+dx*speedNow*dt,nz=P.z+dz*speedNow*dt;
-    const walk=function(x,z){return Math.hypot(x,z)<112&&heightAt(x,z)>WATER-0.3};
+    const walk=function(x,z){return Math.hypot(x,z)<112};
     if(walk(nx,P.z))P.x=nx;
     if(walk(P.x,nz))P.z=nz;
     collide(P);
     P.phase+=speedNow*dt*1.25;
   }
-  const gy=heightAt(P.x,P.z);P.y+=(gy-P.y)*Math.min(1,dt*14);
-  if(jumpReq&&P.jh<=0.001){P.jv=6.4}
-  jumpReq=false;
-  if(P.jh>0||P.jv>0){P.jv-=20*dt;P.jh=Math.max(0,P.jh+P.jv*dt);if(P.jh===0)P.jv=0}
-
+  const gy=heightAt(P.x,P.z),dep=WATER-gy;P.y+=(gy-P.y)*Math.min(1,dt*14);
+  const fx2=P.x+fx*0.55,fz2=P.z+fz*0.55;
+  /* masuk / keluar mode berenang */
+  const SWIM_D=1.35;
+  if(!P.swim&&dep>SWIM_D){P.swim=true;P.ey=Math.max(P.y+1.68+P.jh,WATER-0.1);splash.splash(fx2,fz2,46,1.3);water.ripple(P.x,P.z,1);audio.splash(2);screenDrops(9)}
+  if(P.swim&&dep<SWIM_D-0.2){P.swim=false;P.jh=0;P.jv=0}
+  const landedWet=P.jh>0;
+  if(P.swim){
+    let vy=0;
+    if(mag>0.06)vy+=Math.sin(cam.pitch)*iy*speedNow*1.1;   /* lihat ke bawah + maju = menyelam */
+    if(keys[' ']||upHold)vy+=1.9;
+    if(keys.c||keys.control)vy-=1.9;
+    if(Math.abs(vy)<0.05)vy+=0.32;                         /* daya apung */
+    P.ey=clamp(P.ey+vy*dt,gy+0.45,WATER+0.24);
+    jumpReq=false;P.jh=0;P.jv=0;
+  }else{
+    if(jumpReq&&P.jh<=0.001&&dep<0.8){P.jv=6.4}
+    jumpReq=false;
+    if(P.jh>0||P.jv>0){P.jv-=20*dt;P.jh=Math.max(0,P.jh+P.jv*dt);if(P.jh===0)P.jv=0}
+    if(landedWet&&P.jh===0&&dep>0.05){splash.splash(fx2,fz2,30,1);water.ripple(P.x,P.z,0.9);audio.splash(dep>0.5?2:1);if(dep>0.3)screenDrops(5)}
+  }
+  /* langkah di air dangkal: cipratan kecil tiap langkah */
+  const wet=!P.swim&&dep>0.03;
+  if(wet&&!P.wet&&speedNow>0){splash.splash(fx2,fz2,10,0.6);water.ripple(P.x,P.z,0.6);audio.splash(1,0.7)}
+  P.wet=wet;
+  const stp=Math.floor(P.phase/(Math.PI/2));
+  if(stp!==P.step){P.step=stp;if(wet&&speedNow>0.5&&P.jh===0){const k=clamp(dep/1.2,0.15,1);splash.splash(fx2+rx*(stp%2?0.15:-0.15),fz2+rz*(stp%2?0.15:-0.15),Math.round(5+k*10),0.35+k*0.6*(speedNow/6));water.ripple(P.x,P.z,0.35+k*0.4);audio.splash(0,0.5+k)}}
+  /* kayuhan renang di permukaan */
+  if(P.swim&&speedNow>0.3&&P.ey>WATER-0.35){P.stroke-=dt;if(P.stroke<=0){P.stroke=0.8;splash.splash(fx2,fz2,9,0.45);water.ripple(fx2,fz2,0.6);audio.splash(0,0.8)}}
   /* kamera orang pertama: tinggi mata 1,68 m, goyangan langkah halus, FOV melebar saat lari */
   const mv=Math.min(1,speedNow/4.6);
   const bob=Math.sin(P.phase*2)*0.032*mv,sway=Math.cos(P.phase)*0.018*mv;
-  wcam.position.set(P.x+Math.cos(cam.yaw)*sway,P.y+1.68+bob+P.jh,P.z-Math.sin(cam.yaw)*sway);
+  const eyeT=P.swim?P.ey+(P.ey>WATER-0.3?Math.sin(T*1.7)*0.05:Math.sin(T*0.9)*0.03):P.y+1.68+bob*(wet?0.5:1)+P.jh;
+  P.eyeS=P.eyeS?P.eyeS+(eyeT-P.eyeS)*Math.min(1,dt*(P.swim?6:16)):eyeT;
+  wcam.position.set(P.x+Math.cos(cam.yaw)*sway,P.eyeS,P.z-Math.sin(cam.yaw)*sway);
+  /* bawah air: kabut, suara teredam, gelembung */
+  const under=wcam.position.y<WATER-0.03&&WATER-gy>0.05;
+  if(under!==P.under){P.under=under;document.body.classList.toggle('underwater',under);audio.setUnder(under);
+    if(under){splash.bubbles(P.x+fx*0.4,P.eyeS-0.1,P.z+fz*0.4,14);audio.bubbles(8)}else{splash.splash(P.x+fx*0.4,P.z+fz*0.4,12,0.5);audio.splash(1,0.6);screenDrops(6)}}
+  if(under){P.bub-=dt;if(P.bub<=0){P.bub=speedNow>0.3?0.5:1.6;splash.bubbles(P.x+fx*0.35,P.eyeS-0.15,P.z+fz*0.35,speedNow>0.3?4:2);if(Math.random()<0.4)audio.bubbles(2,0.03)}}
+  splash.update(dt,T);
   wcam.rotation.set(cam.pitch,cam.yaw,0);
   zoomC+=(zoomT-zoomC)*Math.min(1,dt*8);const tf=(66+(speedNow>6?5:0))*zoomC;cam.fov+=(tf-cam.fov)*Math.min(1,dt*5);
   if(Math.abs(wcam.fov-cam.fov)>0.02){wcam.fov=cam.fov;wcam.updateProjectionMatrix()}
@@ -494,13 +536,13 @@ function step(dt){
   if(mode==='world'){
     tDay=(tDay+dt/240)%1;
     updWorld(dt);
-    sky.update(tDay,T,dt,{x:P.x,y:P.y+1.6,z:P.z});setClock();
+    sky.update(tDay,T,dt,{x:P.x,y:P.y+1.6,z:P.z},P.under);setClock();
     veg.update(P,T,dt);water.update(T);
-    { const cdx=catW.x-P.x,cdz=catW.z-P.z,cd=Math.hypot(cdx,cdz)||1;audio.update(dt,{day:sky.day,world:true,catDist:cd,catPan:(cdx*Math.cos(cam.yaw)-cdz*Math.sin(cam.yaw))/cd}) }
+    { const cdx=catW.x-P.x,cdz=catW.z-P.z,cd=Math.hypot(cdx,cdz)||1;audio.update(dt,{day:sky.day,world:true,under:P.under,catDist:cd,catPan:(cdx*Math.cos(cam.yaw)-cdz*Math.sin(cam.yaw))/cd}) }
     fxW.render(dt);
   }else{
     D.update(dt,T,selected,hovered);
-    audio.update(dt,{day:sky.day,world:false,catSub:subject==='cat',catDist:99,catPan:0});
+    audio.update(dt,{day:sky.day,world:false,under:false,catSub:subject==='cat',catDist:99,catPan:0});
     fxCur().render(dt);
   }
 }
