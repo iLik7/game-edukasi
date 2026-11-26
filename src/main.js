@@ -15,6 +15,9 @@ import SP_KAMBING from './species/kambing.js';
 import SP_AYAM from './species/ayam.js';
 import SP_KUPU from './species/kupu.js';
 import SP_KATAK from './species/katak.js';
+import SP_BURUNG from './species/burung.js';
+import SP_KEPITING from './species/kepiting.js';
+import { BURUNG, KEPITING } from './objects/hewan3.js';
 import { AYAM, KUPU, KATAK } from './objects/hewan2.js';
 import { fishData, FISH_IDS } from './objects/ikan.js';
 import { fishSpec, buildFishSchools } from './fish.js';
@@ -33,7 +36,7 @@ import { createSplash } from './splash.js';
 'use strict';
 const KEY='hutan-ilmu-v1',QKEY='hutan-ilmu-q';
 const TLAYERS=OBJ.layers,TREES=OBJ.specimens,QUIZ=OBJ.quiz;
-const AN=[{data:CAT,spec:SP_KUCING},{data:ruminantData('sapi'),spec:SP_SAPI},{data:ruminantData('kambing'),spec:SP_KAMBING},{data:AYAM,spec:SP_AYAM,extra:[[-6,13.5],[-2.5,14]]},{data:KUPU,spec:SP_KUPU,extra:[[-5,-1],[0,-5.5]]},{data:KATAK,spec:SP_KATAK,extra:[[-19,18],[-17.5,23.5]]}];
+const AN=[{data:CAT,spec:SP_KUCING},{data:ruminantData('sapi'),spec:SP_SAPI},{data:ruminantData('kambing'),spec:SP_KAMBING},{data:AYAM,spec:SP_AYAM,extra:[[-6,13.5],[-2.5,14]]},{data:KUPU,spec:SP_KUPU,extra:[[-5,-1],[0,-5.5]]},{data:KATAK,spec:SP_KATAK,extra:[[-19,18],[-17.5,23.5]]},{data:BURUNG,spec:SP_BURUNG,extra:[[-9,2],[11,-5]]},{data:KEPITING,spec:SP_KEPITING,extra:[[-22,16],[-22,38]]}];
 const FI=FISH_IDS.map(function(id){const d=fishData(id);return {data:d,spec:fishSpec(d.P),fish:true}});
 const MO=['kelapa','bambu'].map(function(id){const d=monoData(id);return {data:d,mono:true,buildD:function(r){return buildMonoDissect(r,{type:id})}}});
 const LF=[{data:DAUN,leaf:true,buildD:function(r){return buildLeafDissect(r)}}];
@@ -130,7 +133,7 @@ const heroObjs=veg.heroObjs,heroHits=veg.heroHits;
 /* hewan di dunia: dijadwalkan setelah pohon supaya tag, prompt, dan klik memakai jalur yang sama */
 AN.forEach(function(a,k){
   const H=a.data.specimen;
-  a.w=buildWorldAnimal(world,{heightAt:heightAt,WATER:WATER},a.spec,{x:H.x,z:H.z},404+k*31,a.data.id==='kucing'?null:PADDOCK);
+  a.w=buildWorldAnimal(world,{heightAt:heightAt,WATER:WATER},a.spec,{x:H.x,z:H.z},404+k*31,(a.data.id==='sapi'||a.data.id==='kambing')?PADDOCK:null);
   const mk=new THREE.Mesh(new THREE.OctahedronGeometry(a.data.id==='sapi'?0.3:0.16,0),new THREE.MeshStandardMaterial({color:0xffd35a,emissive:0xffa800,emissiveIntensity:2.2,roughness:0.3}));mk.userData.noAO=true;world.add(mk);
   const rr=a.data.id==='sapi'?1.6:a.data.id==='kambing'?0.9:0.55;
   const rg=new THREE.RingGeometry(rr,rr+0.1,48,1);rg.rotateX(-Math.PI/2);
@@ -629,7 +632,7 @@ function updWorld(dt){
     const vis=a.spec.worldScale<0.12?(quality==='hemat'?22:34):(quality==='hemat'?45:70);
     const w=a.w;w.update(dt,T,P);w.group.visible=Math.hypot(w.x-P.x,w.z-P.z)<vis;
     a.extraW.forEach(function(e){const de=Math.hypot(e.x-P.x,e.z-P.z);e.group.visible=de<vis*0.8;if(e.group.visible)e.update(dt,T,P)});
-    const H=HEROES[a.hi],o=heroObjs[a.hi];H.x=w.x;H.z=w.z;o.y=w.y;o.mk.position.x=w.x;o.mk.position.z=w.z;o.ring.position.set(w.x,w.y+0.04,w.z);
+    const H=HEROES[a.hi],o=heroObjs[a.hi];H.x=w.x;H.z=w.z;o.y=w.y+(a.spec.walk.perch?w.alt||0:0);o.mk.position.x=w.x;o.mk.position.z=w.z;o.ring.position.set(w.x,w.y+0.04,w.z);
     /* suara hewan sesekali saat pemain dekat */
     const dx=w.x-P.x,dz=w.z-P.z,d=Math.hypot(dx,dz)||1;
     a.callT-=dt;if(a.callT<=0){a.callT=8+Math.random()*16;if(d<14&&!P.under)audio.call(a.data.id,0.2*Math.max(0.15,1-d/15),(dx*Math.cos(cam.yaw)-dz*Math.sin(cam.yaw))/d)}

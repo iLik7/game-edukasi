@@ -40,6 +40,12 @@ export function createAudio() {
     else { chirp(at, base, base * 1.8, 0.28, vl, pn); chirp(at + 0.3, base * 1.7, base * 0.9, 0.22, vl * 0.9, pn); }
   }
 
+  /* kicau kutilang: rangkaian nada bulat naik-turun (sekitar 1-2,5 kHz) */
+  function kicau(vl, pn) {
+    if (!ctx || !on) return; const at = ctx.currentTime + 0.02, f = 1300 + Math.random() * 300;
+    const seq = [[1, 1.35, 0.11], [1.5, 1.2, 0.09], [1.1, 1.6, 0.12], [1.7, 1.3, 0.1], [1.25, 1.0, 0.16]];
+    let t = 0; seq.forEach((q, i) => { if (i === 3 && Math.random() < 0.4) return; chirp(at + t, f * q[0], f * q[1], q[2], vl, pn); t += q[2] + 0.04; });
+  }
   /* meong: gelombang gigi gergaji lewat dua formant, nada naik lalu turun */
   function meow(vl, pn) {
     if (!ctx || !on) return; const at = ctx.currentTime + 0.02, dur = 0.75 + Math.random() * 0.25, f = 420 + Math.random() * 120;
@@ -119,7 +125,7 @@ export function createAudio() {
       const g = ctx.createGain(), p = pan(pn); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vl, at + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
       o.connect(am); am.connect(bp); bp.connect(g); g.connect(p); p.connect(master); o.start(at); o.stop(at + dur + 0.02); lfo.start(at); lfo.stop(at + dur + 0.02); }
   }
-  function call(id, vl, pn) { if (id === 'sapi') moo(vl, pn); else if (id === 'kambing') bleat(vl * 0.9, pn); else if (id === 'ayam') cluck(vl, pn); else if (id === 'katak') croak(vl, pn); else if (id === 'kupu') return; else meow(vl * 0.8, pn); }
+  function call(id, vl, pn) { if (id === 'sapi') moo(vl, pn); else if (id === 'kambing') bleat(vl * 0.9, pn); else if (id === 'ayam') cluck(vl, pn); else if (id === 'katak') croak(vl, pn); else if (id === 'burung') kicau(vl, pn); else if (id === 'kupu' || id === 'kepiting') return; else meow(vl * 0.8, pn); }
 
   function ramp(g, v, tc = 0.6) { g.gain.setTargetAtTime(v, ctx.currentTime, tc); }
 
