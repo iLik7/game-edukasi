@@ -181,3 +181,7 @@ body.leafmode p.leaf-only{display:block}
 .rbar{flex:1;height:10px;border-radius:6px;background:rgba(255,255,255,.12);overflow:hidden}
 .rbar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7fbf4a,#f2d35c);transition:width .2s}
 #rateTxt{font:700 14px var(--f-display);min-width:44px;text-align:right}
+
+.forest-only{display:none}
+body.forestmode .forest-only{display:flex}
+body.nodepth label[for=depth]{display:none!important}
