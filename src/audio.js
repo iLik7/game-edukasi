@@ -1,7 +1,7 @@
 /* Suara lingkungan prosedural (Web Audio, tanpa file aset): angin, burung, jangkrik malam, dan meong kucing.
    AudioContext baru dibuat setelah interaksi pertama pemain (aturan autoplay browser). */
 export function createAudio() {
-  let ctx = null, master = null, lp = null, under = false, brookG = null, brookF = null, windG = null, windF = null, leafG = null, cricG = null, purrG = null, noiseBuf = null;
+  let ctx = null, master = null, lp = null, under = false, brookG = null, brookF = null, windG = null, windF = null, leafG = null, cricG = null, purrG = null, noiseBuf = null, buzzG = null, buzzO = null, lapG = null, logG = null;
   let on = true, vol = 0.8, nextBird = 3, birdFlock = 0, nextMeow = 6, t = 0;
 
   function init() {
@@ -23,7 +23,21 @@ export function createAudio() {
     const ps = ctx.createBufferSource(); ps.buffer = noiseBuf; ps.loop = true; const pf = ctx.createBiquadFilter(); pf.type = 'lowpass'; pf.frequency.value = 190; pf.Q.value = 0.8;
     const pam = ctx.createGain(); pam.gain.value = 0.55; const pl = ctx.createOscillator(); pl.frequency.value = 25; const pg = ctx.createGain(); pg.gain.value = 0.45; pl.connect(pg); pg.connect(pam.gain);
     purrG = ctx.createGain(); purrG.gain.value = 0; ps.connect(pf); pf.connect(pam); pam.connect(purrG); purrG.connect(master); ps.start(); pl.start();
+    /* dengung lebah: gergaji ~230 Hz lewat bandpass, dengan getaran amplitudo */
+    buzzO = ctx.createOscillator(); buzzO.type = 'sawtooth'; buzzO.frequency.value = 230; const bf = ctx.createBiquadFilter(); bf.type = 'bandpass'; bf.frequency.value = 520; bf.Q.value = 1.2;
+    const bam = ctx.createGain(); bam.gain.value = 0.6; const bl = ctx.createOscillator(); bl.frequency.value = 7; const blg = ctx.createGain(); blg.gain.value = 0.4; bl.connect(blg); blg.connect(bam.gain);
+    buzzG = ctx.createGain(); buzzG.gain.value = 0; buzzO.connect(bf); bf.connect(bam); bam.connect(buzzG); buzzG.connect(master); buzzO.start(); bl.start();
+    /* kecipak air di sela akar bakau */
+    const lp2 = src('lowpass', 420, 0.6); lapG = lp2.g;
+    /* jangkrik siang di dekat kayu lapuk (nada lebih rendah) */
+    const o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = 3600; const am2 = ctx.createGain(); am2.gain.value = 0; const l2 = ctx.createOscillator(); l2.frequency.value = 24; const lg2 = ctx.createGain(); lg2.gain.value = 0.5;
+    logG = ctx.createGain(); logG.gain.value = 0; l2.connect(lg2); lg2.connect(am2.gain); o2.connect(am2); am2.connect(logG); logG.connect(master); o2.start(); l2.start();
   }
+  /* bunyi UI: denting saat menemukan sesuatu, benar/salah kuis, desir saat masuk/keluar bedah */
+  function tone(at, f, dur, vl, type = 'sine') { const o = ctx.createOscillator(), g = ctx.createGain(); o.type = type; o.frequency.setValueAtTime(f, at); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vl, at + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, at + dur); o.connect(g); g.connect(master); o.start(at); o.stop(at + dur + 0.05); }
+  function chime(big) { if (!ctx || !on) return; const at = ctx.currentTime + 0.01, n = big ? [784, 988, 1175, 1568] : [1047, 1568]; n.forEach((f, i) => { tone(at + i * 0.08, f, 0.5, 0.05); tone(at + i * 0.08, f * 2, 0.25, 0.012); }); }
+  function quizSfx(ok) { if (!ctx || !on) return; const at = ctx.currentTime + 0.01; if (ok) { tone(at, 660, 0.25, 0.06); tone(at + 0.1, 990, 0.4, 0.06); } else { tone(at, 300, 0.22, 0.04, 'triangle'); tone(at + 0.12, 220, 0.35, 0.04, 'triangle'); } }
+  function whoosh(inward) { if (!ctx || !on) return; const at = ctx.currentTime, s = ctx.createBufferSource(); s.buffer = noiseBuf; const f = ctx.createBiquadFilter(); f.type = 'bandpass'; f.Q.value = 1.5; f.frequency.setValueAtTime(inward ? 300 : 2200, at); f.frequency.exponentialRampToValueAtTime(inward ? 2200 : 300, at + 0.6); const g = ctx.createGain(); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(0.12, at + 0.25); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.7); s.connect(f); f.connect(g); g.connect(master); s.start(at); s.stop(at + 0.75); }
 
   function pan(p) { if (ctx.createStereoPanner) { const s = ctx.createStereoPanner(); s.pan.value = Math.max(-1, Math.min(1, p)); return s; } return ctx.createGain(); }
 
@@ -133,7 +147,7 @@ export function createAudio() {
     init,
     get enabled() { return on; },
     setEnabled(v) { on = v; if (ctx) master.gain.setTargetAtTime(on ? vol : 0, ctx.currentTime, 0.1); },
-    meow, call, splash, bubbles, setUnder,
+    meow, call, splash, bubbles, setUnder, chime, quizSfx, whoosh,
     /* s: {day 0..1, world bool, catSub bool, catDist m, catPan -1..1} */
     update(dt, s) {
       if (!ctx || !on) return; t += dt;
@@ -144,6 +158,9 @@ export function createAudio() {
       ramp(brookG, 0.09 * (s.river || 0) * (s.under ? 0.3 : 1), 0.4); brookF.frequency.setTargetAtTime(900 + 600 * Math.abs(Math.sin(t * 3.7) * Math.sin(t * 1.3)), ctx.currentTime, 0.05);
       ramp(cricG, 0.012 * Math.max(0, 1 - s.day * 2.2) * inW);
       ramp(purrG, s.catSub ? 0.22 : 0, 0.4);
+      const bz = (s.buzz || 0) * (s.under ? 0 : 1); ramp(buzzG, 0.035 * bz, 0.3); buzzO.frequency.setTargetAtTime(215 + 30 * Math.sin(t * 1.7) + 15 * Math.sin(t * 5.3), ctx.currentTime, 0.1);
+      ramp(lapG, (s.shore || 0) * (0.05 + 0.05 * Math.max(0, Math.sin(t * 1.1) * Math.sin(t * 0.37 + 1))), 0.25);
+      ramp(logG, 0.006 * (s.log || 0) * (0.5 + 0.5 * (Math.sin(t * 0.8) > -0.2 ? 1 : 0)), 0.2);
       if (s.world && !s.under && s.day > 0.35) {
         nextBird -= dt;
         if (nextBird <= 0) { bird(0.035 + Math.random() * 0.03); if (birdFlock > 0) { birdFlock--; nextBird = 0.4 + Math.random() * 0.9; } else { birdFlock = Math.random() < 0.3 ? 2 + Math.floor(Math.random() * 3) : 0; nextBird = 3 + Math.random() * 7; } }

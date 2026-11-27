@@ -87,7 +87,7 @@ function updProfile(){
   $('#xpBar').style.width=(S.xp%100)+'%';
   $('#mission').textContent=missionText();
 }
-function award(n,why){S.xp+=n;toast('+'+n+' XP '+why);updProfile();save()}
+function award(n,why){S.xp+=n;toast('+'+n+' XP '+why);audio.chime(n>=30);updProfile();save()}
 function checkMission(){if(!S.mission&&foundCount()>=TLAYERS.length){S.mission=true;award(60,'misi selesai');updProfile()}}
 
 /* ---------------- renderer + kualitas ---------------- */
@@ -352,12 +352,32 @@ function select(id){
   renderChips();renderInfo();
   const p=$('#panel');if(p)p.scrollTop=0;
 }
-function fadeTo(fn){
+function fadeTo(fn,ms){
   const f=$('#fade');f.style.opacity=1;
-  setTimeout(function(){fn();f.style.opacity=0},window.matchMedia('(prefers-reduced-motion:reduce)').matches?0:380);
+  setTimeout(function(){fn();if(!camFx)f.style.opacity=0},window.matchMedia('(prefers-reduced-motion:reduce)').matches?0:(ms||380));
 }
+/* TRANSISI: kamera dunia meluncur ke objek, layar memudar singkat, lalu kamera bedah mundur-maju (zoom in) */
+let camFx=null,dIntro=null;
+const RM=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+const easeIO=function(t){t=clamp(t,0,1);return t<0.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2};
 function enterDissect(i){
   if(nav.target===i)nav.setTarget(-1);
+  if(mode!=='world'||camFx)return;
+  if(RM){doEnter(i);return}
+  camFx={i:i,t:0,dur:0.75,dir:1,done:function(){doEnter(i)}};audio.whoosh(true);keys={};joy.x=0;joy.y=0;
+}
+function camFxApply(dt){
+  if(!camFx)return;
+  camFx.t+=dt;const k=easeIO(camFx.t/camFx.dur),kk=camFx.dir>0?k:1-k,H=HEROES[camFx.i],o=heroObjs[camFx.i];
+  const tp=new THREE.Vector3(H.x,o.y+(camFx.i<TREES.length?1.4:clamp(H.top*0.55,0.15,2.2)),H.z),from=wcam.position.clone(),away=from.clone().sub(tp);away.y=Math.max(away.y,0.3);
+  const close=camFx.i<TREES.length?2.2:clamp(H.top*0.9+1.2,1.6,4),to=tp.clone().add(away.normalize().multiplyScalar(close));
+  wcam.position.lerpVectors(from,to,kk*0.92);
+  const q0=wcam.quaternion.clone(),m=new THREE.Matrix4().lookAt(wcam.position,tp,new THREE.Vector3(0,1,0)),q1=new THREE.Quaternion().setFromRotationMatrix(m);
+  wcam.quaternion.copy(q0).slerp(q1,kk);wcam.fov=cam.fov*(1-0.25*kk);wcam.updateProjectionMatrix();
+  $('#fade').style.opacity=camFx.dir>0?smooth(0.7,1,camFx.t/camFx.dur):1-smooth(0,0.35,camFx.t/camFx.dur);
+  if(camFx.t>=camFx.dur){const f=camFx.done;camFx=null;if(f)f()}
+}
+function doEnter(i){
   fadeTo(function(){
     curHero=i;const H=HEROES[i];
     useSubject(H.kind?H.id:'tree');
@@ -376,10 +396,14 @@ function enterDissect(i){
     if(!S.trees[H.id]){S.trees[H.id]=1;award(10,isAnimal()?H.short+' dibedah':'pohon baru')}
     selected=null;renderChips();renderInfo();sunCaption();updProfile();resize();
     keys={};joy.x=0;joy.y=0;
-  });
+    if(!RM){dIntro={t:0,d1:dState.dist};dState.dist*=1.7}
+  },RM?380:120);
 }
 function exitDissect(){
-  fadeTo(function(){mode='world';useSubject('tree');document.body.classList.remove('dissect');hideTip();updProfile();resize()});
+  if(RM){fadeTo(function(){mode='world';useSubject('tree');document.body.classList.remove('dissect');hideTip();updProfile();resize()});return}
+  audio.whoosh(false);dIntro={t:0,d1:dState.dist,out:true};
+  setTimeout(function(){fadeTo(function(){mode='world';useSubject('tree');document.body.classList.remove('dissect');hideTip();updProfile();resize();dIntro=null;
+    camFx={i:curHero,t:0,dur:0.7,dir:-1,done:null};$('#fade').style.opacity=1},120)},300);
 }
 
 /* modals */
@@ -425,6 +449,7 @@ function renderQ(){
 }
 function answerQ(oi){
   const q=qz.set[qz.order[qz.i]],ok=oi===q.a;
+  audio.quizSfx(ok);
   document.querySelectorAll('#opts .opt').forEach(function(b){
     const v=+b.dataset.o;b.disabled=true;
     if(v===q.a)b.classList.add('ok');else if(v===oi)b.classList.add('bad');
@@ -591,6 +616,7 @@ function screenDrops(n){
   for(let i=0;i<n;i++){const d=document.createElement('i');const s=18+Math.random()*46;d.style.width=d.style.height=s+'px';d.style.left=(Math.random()*100)+'%';d.style.top=(Math.random()*85)+'%';d.style.animationDelay=(Math.random()*0.15)+'s';box.appendChild(d);setTimeout(function(){d.remove()},1900)}
 }
 function updWorld(dt){
+  if(camFx){keys={};joy.x=0;joy.y=0}
   const kx=(keys.d||keys.arrowright?1:0)-(keys.a||keys.arrowleft?1:0);
   const ky=(keys.w||keys.arrowup?1:0)-(keys.s||keys.arrowdown?1:0);
   const ix=clamp(kx+joy.x,-1,1),iy=clamp(ky+joy.y,-1,1);
@@ -655,7 +681,8 @@ function updWorld(dt){
   splash.update(dt,T);
   wcam.rotation.set(cam.pitch,cam.yaw,0);
   zoomC+=(zoomT-zoomC)*Math.min(1,dt*8);const tf=(66+(speedNow>6?5:0))*zoomC;cam.fov+=(tf-cam.fov)*Math.min(1,dt*5);
-  if(Math.abs(wcam.fov-cam.fov)>0.02){wcam.fov=cam.fov;wcam.updateProjectionMatrix()}
+  if(Math.abs(wcam.fov-cam.fov)>0.02||camFx){wcam.fov=cam.fov;wcam.updateProjectionMatrix()}
+  camFxApply(dt);
 
   /* markers, tags, prompt */
   AN.forEach(function(a){
@@ -729,7 +756,7 @@ sky.update(tDay,T,0.016,{x:P.x,y:P.y+1.6,z:P.z});setClock();
 $('#loading').classList.add('done');
 setTimeout(function(){$('#loading').style.display='none'},700);
 
-if(DEBUG)window.__hi={enter:enterDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},look:function(i,d){const H=HEROES[i];d=d||11;const L=Math.hypot(H.x,H.z-2)||1;P.x=H.x+(0-H.x)/L*d;P.z=H.z+(2-H.z)/L*d;P.y=heightAt(P.x,P.z);cam.yaw=Math.atan2(P.x-H.x,P.z-H.z);cam.pitch=0.22},getMode:function(){return mode},nav:nav,ds:function(){return dState},fishW:fishW};
+if(DEBUG)window.__hi={enter:function(i){doEnter(i)},enterFx:enterDissect,exit:exitDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},look:function(i,d){const H=HEROES[i];d=d||11;const L=Math.hypot(H.x,H.z-2)||1;P.x=H.x+(0-H.x)/L*d;P.z=H.z+(2-H.z)/L*d;P.y=heightAt(P.x,P.z);cam.yaw=Math.atan2(P.x-H.x,P.z-H.z);cam.pitch=0.22},getMode:function(){return mode},nav:nav,fx:function(){return [camFx&&camFx.t,camFx&&camFx.dir,dIntro&&dIntro.t]},ds:function(){return dState},fishW:fishW};
 
 let last=performance.now(),paused=false,edgeT=-99;
 function step(dt){
@@ -739,7 +766,7 @@ function step(dt){
     updWorld(dt);
     sky.update(tDay,T,dt,{x:P.x,y:P.y+1.6,z:P.z},P.under);setClock();
     veg.update(P,T,dt);water.update(T);if(bush)bush.update(T);river.update(T);nav.update(dt,P,cam.yaw,T);
-    {const rd=riverInfo(P.x,P.z).d;audio.update(dt,{day:sky.day,world:true,under:P.under,river:Math.pow(clamp(1-rd/28,0,1),2)})}
+    {const rd=riverInfo(P.x,P.z).d;const nb=function(x,z,r){return Math.pow(clamp(1-Math.hypot(P.x-x,P.z-z)/r,0,1),1.5)};audio.update(dt,{day:sky.day,world:true,under:P.under,river:Math.pow(clamp(1-rd/28,0,1),2),buzz:nb(BUNGA.specimen.x,BUNGA.specimen.z,9),shore:nb(BAKAU.specimen.x,BAKAU.specimen.z,16),log:nb(JAMUR.specimen.x,JAMUR.specimen.z,10)})}
     fxW.render(dt);
   }else{
     D.update(dt,T,selected,hovered);
@@ -754,7 +781,8 @@ function step(dt){
       gasAcc+=dt;if(gasAcc>0.15){gasAcc=0;const st=dState.status;$('#gasCap').textContent=(st==='melayang'?'Ikan melayang: daya apung seimbang dengan berat tubuh.':st==='tenggelam'?'Ikan tenggelam: gas di gelembung renang kurang.':'Ikan naik: gas di gelembung renang terlalu banyak.')+(dState.counter===false?' Aliran searah: darah dan air sejalan, oksigen yang terserap jauh lebih sedikit.':' Aliran berlawanan arah: darah (merah) melawan arus air (biru), oksigen terserap maksimal.')}
       if(dState.buoyOk&&!S.found[fk('buoy')]){S.found[fk('buoy')]=1;award(30,'ikan melayang seimbang');save()}
     }
-    audio.update(dt,{day:sky.day,world:false,under:false,catSub:subject==='kucing'});
+    audio.update(dt,{day:sky.day,world:false,under:false,catSub:subject==='kucing',buzz:subject==='bunga'?0.6*(1-smooth(0.6,0.85,dState.depth||0)):0,shore:subject==='bakau'?0.5+0.5*(dState.sun||0):0,log:subject==='jamur'?0.7:0});
+    if(dIntro){dIntro.t+=dt;if(dIntro.out)dState.dist=dIntro.d1*(1+0.6*easeIO(dIntro.t/0.4));else if(dState.user&&dIntro.t>0.15)dIntro=null;else{dState.dist=lerp(dIntro.d1*1.7,dIntro.d1,easeIO(dIntro.t/0.9));if(dIntro.t>0.9)dIntro=null}}
     fxCur().render(dt);
   }
 }
