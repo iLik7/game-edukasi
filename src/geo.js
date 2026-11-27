@@ -25,7 +25,7 @@ export function rockGeo(r, seed, detail = 3, flat = 1) {
 }
 
 /* kerangka adegan bersama */
-function stage(renderer, bg, pedR = 4.6, pedY = -0.15) {
+export function stage(renderer, bg, pedR = 4.6, pedY = -0.15) {
   const scene = new THREE.Scene();
   { const c = document.createElement('canvas'); c.width = c.height = 512; const x = c.getContext('2d'); const g = x.createRadialGradient(256, 220, 20, 256, 256, 420); g.addColorStop(0, bg[0]); g.addColorStop(0.55, bg[1]); g.addColorStop(1, '#05090e'); x.fillStyle = g; x.fillRect(0, 0, 512, 512); const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; scene.background = t; }
   scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture; scene.environmentIntensity = 0.5;

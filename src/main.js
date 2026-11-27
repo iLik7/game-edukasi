@@ -26,6 +26,8 @@ import { buildPalm, buildBamboo, buildMonoDissect } from './monocot.js';
 import DAUN from './objects/daun.js';
 import { buildSapling, buildLeafDissect } from './leaf.js';
 import { TANAH, BATUAN, AIR } from './objects/geo.js';
+import { BAKAU, JAMUR } from './objects/ekosistem.js';
+import { buildMangroveGrove, buildMangroveDissect, buildMushroomLog, buildFungusDissect } from './eco.js';
 import { buildSoilDissect, buildRockDissect, buildWaterCycleDissect, buildSoilBank, buildRockOutcrop, buildSignboard } from './geo.js';
 import BUNGA from './objects/bunga.js';
 import { buildHibiscusBush, buildFlowerDissect } from './flower.js';
@@ -42,7 +44,8 @@ const MO=['kelapa','bambu'].map(function(id){const d=monoData(id);return {data:d
 const LF=[{data:DAUN,leaf:true,buildD:function(r){return buildLeafDissect(r)}}];
 const GEO=[{data:TANAH,geo:true,buildD:buildSoilDissect},{data:BATUAN,geo:true,buildD:buildRockDissect},{data:AIR,geo:true,buildD:buildWaterCycleDissect}];
 const FL=[{data:BUNGA,flower:true,buildD:buildFlowerDissect}];
-const ALL=AN.concat(FI,MO,LF,GEO,FL);
+const ECO=[{data:BAKAU,geo:true,buildD:buildMangroveDissect},{data:JAMUR,geo:true,buildD:buildFungusDissect}];
+const ALL=AN.concat(FI,MO,LF,GEO,FL,ECO);
 const HEROES=TREES.concat(ALL.map(function(a){return a.data.specimen}));
 ALL.forEach(function(a,i){a.hi=TREES.length+i});
 const PADDOCK={x:13,z:22.5,r:8.5};
@@ -128,7 +131,7 @@ function collide(p){
   }
 }
 
-const veg=await buildVegetation({scene:world,heroes:TREES,clear:[PADDOCK,{x:4,z:-3,r:2.5},{x:-12,z:-16,r:3.5},{x:20,z:-2,r:4},{x:-18.5,z:29.5,r:2.5}].concat(MO.map(function(a){const H=a.data.specimen;return {x:H.x,z:H.z,r:5}}),[{x:-18,z:38,r:5}]),addObs:addObs,quality:quality,progress:function(f,t){loadProgress(0.1+f*0.6,t)}});
+const veg=await buildVegetation({scene:world,heroes:TREES,clear:[PADDOCK,{x:4,z:-3,r:2.5},{x:-12,z:-16,r:3.5},{x:20,z:-2,r:4},{x:-18.5,z:29.5,r:2.5},{x:-27,z:14.5,r:7},{x:13,z:-8,r:2.5}].concat(MO.map(function(a){const H=a.data.specimen;return {x:H.x,z:H.z,r:5}}),[{x:-18,z:38,r:5}]),addObs:addObs,quality:quality,progress:function(f,t){loadProgress(0.1+f*0.6,t)}});
 const heroObjs=veg.heroObjs,heroHits=veg.heroHits;
 /* hewan di dunia: dijadwalkan setelah pohon supaya tag, prompt, dan klik memakai jalur yang sama */
 AN.forEach(function(a,k){
@@ -191,6 +194,18 @@ FL.forEach(function(a){
   const ring=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({color:new THREE.Color(2.2,1.7,0.5),transparent:true,opacity:0.8,side:THREE.DoubleSide,depthWrite:false}));ring.position.set(H.x,y+0.05,H.z);ring.userData.noAO=true;world.add(ring);
   const hit=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.1,2.4,8),new THREE.MeshBasicMaterial({visible:false}));hit.position.set(H.x,y+1.2,H.z);hit.userData.hero=a.hi;world.add(hit);heroHits.push(hit);
   heroObjs.push({g:new THREE.Object3D(),mk:mk,ring:ring,y:y});
+});
+/* ekosistem: rumpun bakau di tepi danau dan batang kayu berjamur */
+ECO.forEach(function(a){
+  const H=a.data.specimen,y=heightAt(H.x,H.z);
+  if(a.data.id==='bakau'){buildMangroveGrove(world,[[-31,11.5,'R',0.85],[-29,13.2,'R',1],[-26.6,15.4,'R',0.9],[-24.6,17.4,'R',0.8],[-30.5,15.5,'R',0.95],[-27.8,10.6,'A',0.9],[-23.4,15.2,'A',0.8]],heightAt);[[-29,13.2],[-26.6,15.4],[-31,11.5],[-24.6,17.4]].forEach(function(q){addObs(q[0],q[1],0.5)})}
+  else{buildMushroomLog(world,H.x,y,H.z,0.4);addObs(H.x,H.z,1.2)}
+  const mk=new THREE.Mesh(new THREE.OctahedronGeometry(0.2,0),new THREE.MeshStandardMaterial({color:0xffd35a,emissive:0xffa800,emissiveIntensity:2.2,roughness:0.3}));mk.position.set(H.x,0,H.z);mk.userData.noAO=true;world.add(mk);
+  const rg=new THREE.RingGeometry(1.5,1.62,48,1);rg.rotateX(-Math.PI/2);
+  const ry=Math.max(y,WATER)+0.05;
+  const ring=new THREE.Mesh(rg,new THREE.MeshBasicMaterial({color:new THREE.Color(2.2,1.7,0.5),transparent:true,opacity:0.8,side:THREE.DoubleSide,depthWrite:false}));ring.position.set(H.x,ry,H.z);ring.userData.noAO=true;world.add(ring);
+  const hit=new THREE.Mesh(new THREE.CylinderGeometry(1.4,1.4,3,8),new THREE.MeshBasicMaterial({visible:false}));hit.position.set(H.x,ry+1.5,H.z);hit.userData.hero=a.hi;world.add(hit);heroHits.push(hit);
+  heroObjs.push({g:new THREE.Object3D(),mk:mk,ring:ring,y:ry});
 });
 /* pagar padang rumput, ada celah gerbang menghadap titik awal */
 (function(){
@@ -273,6 +288,8 @@ function geoCaption(){
   if(subject==='tanah')return s>0.66?'Hujan deras: air cepat meresap di lapisan atas yang gembur, melambat di lapisan lempung, lalu tertahan di atas batuan dasar.':s>0.25?'Hujan sedang: air meresap perlahan ke dalam tanah.':'Hujan ringan: hanya sedikit air yang meresap.';
   if(subject==='batuan')return 'Kecepatan dipercepat supaya terlihat. Di alam, satu putaran siklus batuan bisa butuh jutaan tahun.';
   if(subject==='siklusair'){const f=dState.forest||0,fl=dState.flood||0;return 'Hutan '+Math.round(f*100)+'%. '+(fl>0.6?'Limpasan sangat besar: risiko banjir tinggi, sungai keruh membawa tanah (erosi).':fl>0.35?'Sebagian air mengalir di permukaan, sebagian meresap.':'Sebagian besar air hujan meresap ke tanah dan menjadi air tanah. Sungai tetap jernih.')}
+  if(subject==='bakau'){return s<0.3?'Air surut: akar napas dan lumpur terbuka. Oksigen (titik biru) masuk lewat lentisel akar napas. Glodok keluar dari liangnya mencari makan.':s<0.65?'Air setengah pasang: lumpur mulai tergenang dan pori-pori akar tertutup air.':'Air pasang: akar napas terendam. Anak ikan berenang di sela akar tunjang untuk berlindung dan mencari makan. Akar yang rapat meredam ombak.'}
+  if(subject==='jamur'){return s<0.2?'Awal: pohon baru tumbang. Spora jamur yang mendarat mulai tumbuh menjadi hifa.':s<0.45?'Beberapa minggu: miselium (benang putih) menyebar di dalam kayu dan mengeluarkan enzim pencerna.':s<0.8?'Jamur tumbuh dari kayu dan menebar jutaan spora dari bilahnya. Kayu makin lunak dan gelap.':'Bertahun-tahun kemudian: kayu sudah lapuk menjadi humus. Unsur hara kembali ke tanah dan dipakai tunas baru.'}
   return '';
 }
 function sunCaption(){
@@ -344,7 +361,7 @@ function enterDissect(i){
     mode='dissect';document.body.classList.add('dissect');
     $('#dName').textContent=H.name;$('#dSci').textContent=(H.kind==='geo'?'Bumi dan lingkungan · ':H.kind==='leaf'?'Daun dan fotosintesis · ':H.kind==='flower'?'Bunga dan penyerbukan · ':isAnimal()&&H.kind!=='mono'?'Anatomi dan fisiologi · ':'Penampang batang · ')+H.sci;
     dState.yaw=dState.yaw0||0;dState.user=false;
-    if(H.kind==='geo'){const b={tanah:15,batuan:15,siklusair:19}[H.id];dState.dist=window.innerWidth<760?b*1.8:b;dState.sun=0.5;if(H.id==='siklusair'){dState.forest=0.8;const f=$('#forest');if(f)f.value=80}const a=$('#sun');if(a)a.value=50}
+    if(H.kind==='geo'){const b=H.dist||{tanah:15,batuan:15,siklusair:19}[H.id];dState.dist=window.innerWidth<760?b*1.8:b;dState.sun=0.5;if(H.id==='siklusair'){dState.forest=0.8;const f=$('#forest');if(f)f.value=80}const a=$('#sun');if(a)a.value=50}
     else if(H.kind==='leaf'){dState.pitch=0.45;dState.dist=window.innerWidth<760?22:13;dState.depthT=0;dState.depth=0;dState.sun=0.7;dState.co2=0.6;dState.h2o=0.8;dState.hold=0;dState.ok=!!S.found[fk('maks')];[['#sun',70],['#depth',0],['#co2',60],['#h2o',80]].forEach(function(q){const e=$(q[0]);if(e)e.value=q[1]})}
     else if(H.kind==='flower'){dState.pitch=0.35;dState.dist=window.innerWidth<760?20:11;dState.depthT=0;dState.depth=0;const b=$('#depth');if(b)b.value=0}
     else if(H.kind==='mono'){dState.pitch=0.55;dState.dist=window.innerWidth<760?24:14;dState.depthT=0;dState.depth=0;dState.sun=0.65;const a=$('#sun'),b=$('#depth');if(a)a.value=65;if(b)b.value=0}
