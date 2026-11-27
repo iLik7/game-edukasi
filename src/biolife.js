@@ -155,7 +155,7 @@ function egrets(scene, H, pts) {
 /* kadal/biawak: berlari cepat ke titik acak lalu diam berjemur */
 function lizards(scene, H, o) {
   const r = rng(o.seed || 7), m = new THREE.MeshStandardMaterial({ color: o.color, roughness: 0.7 }), list = [];
-  const geo = mergeGeometries([ellG([0.06, 0.04, 0.17], [0, 0.05, 0], 8), ellG([0.045, 0.035, 0.07], [0, 0.06, 0.2], 7), tubeG([[0, 0.04, -0.14], [0.03, 0.03, -0.3], [0, 0.02, -0.5]], 0.025, 8, 4), ...[[1, 1], [-1, 1], [1, -1], [-1, -1]].map(([sx, sz]) => tubeG([[sx * 0.04, 0.04, sz * 0.09], [sx * 0.1, 0.03, sz * 0.12], [sx * 0.12, 0, sz * 0.08]], 0.012, 3, 3))].map(ni));
+  const geo = o.geo || mergeGeometries([ellG([0.06, 0.04, 0.17], [0, 0.05, 0], 8), ellG([0.045, 0.035, 0.07], [0, 0.06, 0.2], 7), tubeG([[0, 0.04, -0.14], [0.03, 0.03, -0.3], [0, 0.02, -0.5]], 0.025, 8, 4), ...[[1, 1], [-1, 1], [1, -1], [-1, -1]].map(([sx, sz]) => tubeG([[sx * 0.04, 0.04, sz * 0.09], [sx * 0.1, 0.03, sz * 0.12], [sx * 0.12, 0, sz * 0.08]], 0.012, 3, 3))].map(ni));
   for (const [x, z] of o.pts) { const me = new THREE.Mesh(geo, m); me.scale.setScalar(o.s || 1); scene.add(me); list.push({ me, x, z, hx: x, hz: z, tx: x, tz: z, wait: r() * 4 }); }
   return { update(T, dt, show) { for (const q of list) { q.me.visible = show; if (!show) continue; if (q.wait > 0) { q.wait -= dt; if (q.wait <= 0) { const a = r() * TAU, d = 2 + r() * (o.R || 8); q.tx = q.hx + Math.cos(a) * d; q.tz = q.hz + Math.sin(a) * d; } }
     else { const dx = q.tx - q.x, dz = q.tz - q.z, L = Math.hypot(dx, dz), sp = (o.speed || 3) * dt; if (L < sp) { q.wait = 1.5 + r() * 5; } else { q.x += dx / L * sp; q.z += dz / L * sp; q.me.rotation.y = Math.atan2(dx, dz) + Math.sin(T * 30) * 0.25; } }
@@ -303,9 +303,12 @@ export function buildDesertLife(scene, H, o) {
   /* fauna: burung pemakan bangkai berputar, kadal di pasir */
   const vul = flock(G, { x: o.center[0], z: o.center[1], R: 35, h: 42, hv: 10, n: 4, color: C(0.16, 0.12, 0.1), size: 1.6, sp: 0.07, glide: true, seed: 8, kind: 'soar' });
   const lz = lizards(G, H, { pts: put(10, 110, 1, (x, z) => [x, z]), color: C(0.78, 0.62, 0.42), s: 1.3, speed: 4, R: 7, seed: 10 });
+  /* kalajengking: badan pipih, capit di depan, ekor melengkung ke atas dengan sengat */
+  const scG = mergeGeometries([ellG([0.07, 0.025, 0.1], [0, 0.03, 0], 8), ...[1, -1].flatMap((sd) => [tubeG([[sd * 0.04, 0.03, 0.08], [sd * 0.1, 0.03, 0.16], [sd * 0.08, 0.03, 0.22]], 0.012, 4, 3), ellG([0.025, 0.015, 0.04], [sd * 0.08, 0.03, 0.25], 6), ...[0, 1, 2, 3].map((k) => tubeG([[sd * 0.05, 0.03, 0.04 - k * 0.035], [sd * 0.11, 0.04, 0.03 - k * 0.035], [sd * 0.14, 0, 0.02 - k * 0.04]], 0.006, 3, 3))]), tubeG([[0, 0.03, -0.09], [0, 0.06, -0.2], [0, 0.16, -0.24], [0, 0.22, -0.16], [0, 0.2, -0.1]], 0.014, 10, 4)].map(ni));
+  const sc = lizards(G, H, { geo: scG, pts: put(8, 110, 1, (x, z) => [x, z]), color: C(0.3, 0.22, 0.12), s: 1.4, speed: 1.4, R: 4, seed: 11 });
   return { obs, oasis, update(P, T, dt) { const show = Math.hypot(P.x - o.center[0], P.z - o.center[1]) < 260; G.visible = show; if (!show) return;
     for (const q of tw) { const u = ((q.t + T * 2.2) % 160) - 80, x = o.center[0] + u * 0.8 + q.lane * 0.3, z = o.center[1] + u * 0.6 - q.lane * 0.5; q.m.visible = ok(x, z, 0); q.m.position.set(x, H(x, z) + 0.42 * q.s + Math.abs(Math.sin(T * 3 + q.lane)) * 0.3, z); q.m.rotation.set(T * 3 + q.lane, 0.6, 0); q.m.scale.setScalar(q.s); }
-    vul.update(T, true); lz.update(T, dt, true); } };
+    vul.update(T, true); lz.update(T, dt, true); sc.update(T, dt, true); } };
 }
 
 /* ===================== GUNUNG ===================== */
@@ -328,6 +331,49 @@ export function buildAlpineLife(scene, H, o) {
     const ph = H(P.x, P.z), k = smooth(78, 100, ph); snow.visible = k > 0.01; snow.material.opacity = 0.9 * k;
     if (snow.visible) { for (let i = 0; i < N; i++) { const b = sb[i]; let y = ((b[1] - T * 1.6) % 30 + 30) % 30; sp[i * 3] = P.x + b[0] + Math.sin(T * 0.8 + b[3]) * 0.6; sp[i * 3 + 1] = P.y - 4 + y; sp[i * 3 + 2] = P.z + b[2] + Math.cos(T * 0.6 + b[3]) * 0.6; } sg.attributes.position.needsUpdate = true; }
     birds.update(T, true); } };
+}
+
+
+/* ===================== MAMALIA KECIL LATAR (tupai, monyet) ===================== */
+const tupaiGeo = () => mergeGeometries([ellG([0.06, 0.06, 0.12], [0, 0.08, 0], 8), ellG([0.045, 0.045, 0.055], [0, 0.12, 0.12], 8), ...[1, -1].map((sd) => ellG([0.012, 0.025, 0.01], [sd * 0.025, 0.17, 0.12], 5)),
+  tubeG([[0, 0.08, -0.1], [0, 0.18, -0.2], [0, 0.3, -0.18], [0, 0.34, -0.1]], 0.045, 10, 6), ...[[1, 1], [-1, 1], [1, -1], [-1, -1]].map(([sx, sz]) => ellG([0.015, 0.04, 0.015], [sx * 0.04, 0.03, sz * 0.06], 5))].map(ni));
+const monyetGeo = () => mergeGeometries([ellG([0.13, 0.16, 0.2], [0, 0.32, -0.02], 10), ellG([0.1, 0.1, 0.1], [0, 0.48, 0.18], 10), ellG([0.05, 0.04, 0.05], [0, 0.45, 0.27], 6),
+  ...[1, -1].flatMap((sd) => [tubeG([[sd * 0.1, 0.38, 0.12], [sd * 0.13, 0.2, 0.16], [sd * 0.12, 0.02, 0.18]], 0.035, 6, 5), tubeG([[sd * 0.1, 0.25, -0.15], [sd * 0.14, 0.15, -0.05], [sd * 0.12, 0.02, -0.12]], 0.045, 6, 5)]),
+  tubeG([[0, 0.3, -0.2], [0, 0.2, -0.4], [0, 0.25, -0.65], [0, 0.4, -0.75]], 0.025, 12, 4)].map(ni));
+export function buildCritters(scene, H, o) {
+  const G = new THREE.Group(); scene.add(G); const r = rng(9191), packs = [];
+  for (const p of o.packs) { const ok = (x, z) => H(x, z) > o.WATER + 0.3 && away(o.avoid || [], x, z, 1) && (!p.biome || biomeAt(x, z)[p.biome] > 0.6); const pts = scatter(r, p.n, p.x, p.z, p.R, ok, 10);
+    packs.push({ p, L: lizards(G, H, { geo: p.kind === 'monyet' ? monyetGeo() : tupaiGeo(), pts, color: p.color, s: p.s || 1, speed: p.speed || 3, R: p.wander || 6, seed: p.seed || 31 }) }); }
+  return { update(P, T, dt) { for (const k of packs) { const show = Math.hypot(P.x - k.p.x, P.z - k.p.z) < k.p.R + 90; k.L.update(T, dt, show); } } };
+}
+
+/* capung: melayang diam lalu melesat pendek di atas air (danau, sawah) */
+export function buildDragonflies(scene, H, o) {
+  const G = new THREE.Group(); scene.add(G); const r = rng(4343), list = [];
+  const bodyM = new THREE.MeshStandardMaterial({ color: o.color || C(0.15, 0.45, 0.75), roughness: 0.3, metalness: 0.3 }), wingM = new THREE.MeshStandardMaterial({ color: 0xffffff, transparent: true, opacity: 0.35, side: THREE.DoubleSide, roughness: 0.1, depthWrite: false });
+  const bodyG = mergeGeometries([new THREE.CylinderGeometry(0.008, 0.005, 0.09, 5).rotateX(Math.PI / 2).translate(0, 0, -0.03), ellG([0.012, 0.012, 0.015], [0, 0, 0.02], 6), ellG([0.013, 0.012, 0.01], [0, 0, 0.038], 6)].map(ni));
+  const wingG = new THREE.PlaneGeometry(0.075, 0.016).translate(0.04, 0, 0).rotateX(-Math.PI / 2);
+  for (const [cx, cz, y0, n] of o.spots) for (let i = 0; i < n; i++) { const g = new THREE.Group(), b = new THREE.Mesh(bodyG, bodyM); g.add(b); const ws = []; for (const [sx, zz] of [[1, 0.012], [-1, 0.012], [1, -0.005], [-1, -0.005]]) { const w = new THREE.Mesh(wingG, wingM); w.scale.x = sx; w.position.z = zz; g.add(w); ws.push(w); }
+    g.scale.setScalar(o.s || 2.2); G.add(g); list.push({ g, ws, cx, cz, y0, p: V(cx + (r() - 0.5) * 4, y0 + 0.6 + r() * 0.8, cz + (r() - 0.5) * 4), t: V(cx, y0 + 1, cz), wait: r() * 2, ph: r() * 9 }); }
+  const d = V(0, 0, 0);
+  return { update(P, T, dt) { const show = list.length && Math.hypot(P.x - list[0].cx, P.z - list[0].cz) < 120; G.visible = show; if (!show) return;
+    for (const q of list) { if (q.wait > 0) { q.wait -= dt; if (q.wait <= 0) q.t.set(q.cx + (r() - 0.5) * 8, q.y0 + 0.4 + r() * 1.2, q.cz + (r() - 0.5) * 8); }
+      else { d.copy(q.t).sub(q.p); const L = d.length(); if (L < 0.1) q.wait = 0.6 + r() * 2.5; else { q.p.addScaledVector(d, Math.min(1, dt * 4)); q.g.rotation.y = Math.atan2(d.x, d.z); } }
+      q.g.position.set(q.p.x, q.p.y + Math.sin(T * 3 + q.ph) * 0.03, q.p.z); const f = Math.sin(T * 60 + q.ph) * 0.5; q.ws.forEach((w, k) => { w.rotation.z = (k % 2 ? -1 : 1) * f; }); } } };
+}
+
+/* ===================== PANTAI ===================== */
+function shellGeo(r) { const P = []; const g = new THREE.SphereGeometry(0.12, 10, 6, 0, TAU, 0, Math.PI / 2).scale(1, 0.45, 0.8), p = g.attributes.position; for (let i = 0; i < p.count; i++) { const a = Math.atan2(p.getZ(i), p.getX(i)); p.setY(i, p.getY(i) * (1 + 0.15 * Math.cos(a * 9))); } g.computeVertexNormals(); P.push(paint(g, C(0.92, 0.85, 0.75), C(0.98, 0.75, 0.6), 0, 0.05)); return bake(P); }
+function starGeo() { const sh = new THREE.Shape(); for (let k = 0; k <= 10; k++) { const a = k / 10 * TAU, R = k % 2 ? 0.05 : 0.16; sh[k ? 'lineTo' : 'moveTo'](Math.cos(a) * R, Math.sin(a) * R); } return bake([paint(new THREE.ExtrudeGeometry(sh, { depth: 0.03, bevelEnabled: true, bevelSize: 0.015, bevelThickness: 0.015, bevelSegments: 1 }).rotateX(-Math.PI / 2), C(0.9, 0.42, 0.2))]); }
+export function buildCoastLife(scene, H, o) {
+  const G = new THREE.Group(); scene.add(G); const r = rng(8181);
+  const ok = (x, z) => { const B = biomeAt(x, z), h = H(x, z); return B.pantai > 0.5 && h > o.WATER + 0.1 && h < o.WATER + 1.6; };
+  const pts = scatter(r, 160, o.center[0], o.center[1], o.R, ok, 12), sm = solidMat(0.6);
+  inst(G, shellGeo(r), sm, pts.slice(0, 110).map(([x, z]) => ({ x, y: H(x, z) - 0.01, z, ry: r() * TAU, s: 0.7 + r() * 0.8 })), false);
+  inst(G, starGeo(), sm, pts.slice(110).map(([x, z]) => ({ x, y: H(x, z) + 0.005, z, ry: r() * TAU, s: 0.8 + r() * 0.5 })), false);
+  /* burung camar putih melayang di atas pantai */
+  const gulls = flock(G, { x: o.center[0], z: o.center[1] + 20, R: 45, h: o.WATER + 14, hv: 6, n: 7, color: C(0.95, 0.95, 0.95), size: 0.6, sp: 0.18, glide: true, seed: 21, kind: 'swallow' });
+  return { obs: [], update(P, T) { const show = Math.hypot(P.x - o.center[0], P.z - o.center[1]) < o.R + 120; G.visible = show; if (show) gulls.update(T, true); } };
 }
 
 /* ===================== HUJAN (cuaca) ===================== */
