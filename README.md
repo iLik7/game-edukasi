@@ -1,4 +1,6 @@
-# Hutan Ilmu
+# Pengetahuan Dunia
+
+(Dulu bernama Hutan Ilmu. Hutan di tengah pulau tetap bernama Hutan Ilmu.)
 
 Game edukasi 3D di browser. Jelajahi hutan dari sudut pandang orang pertama, dekati pohon bertanda, lalu bedah batangnya sampai kulit luar, floem, kambium, xilem, kayu teras, dan empulur. Ada jurnal, XP, misi, dan kuis.
 
@@ -135,3 +137,5 @@ Ekspansi suasana bioma (src/biolife.js): sapi, kambing, dan ayam pindah dari hub
 Waktu dan cuaca: ketuk jam untuk memilih Pagi, Siang, Sore, Malam (berpindah halus), menghentikan jam, dan cuaca Cerah, Mendung, atau Hujan (awan menutup langit, cahaya meredup, kabut menebal, butiran hujan dan suara hujan; tidak hujan di zona salju). Satu jam di game kini sama dengan satu menit sungguhan (sebelumnya 10 detik). Pilihan tersimpan di peramban.
 
 Pass optimasi (diukur dengan renderer.info di 6 titik, mode Hemat): segitiga per frame turun 33-43% (pusat 1,70 jt → 1,09 jt; hutan hujan 1,71 → 1,14 jt; gunung 1,38 → 0,78 jt; peternakan 0,60 → 0,38 jt) dan draw call turun 20-60%. Caranya: bidang jauh kamera mengikuti kabut (yang sudah >99% tertutup kabut tidak digambar; kubah langit ikut diperkecil), LOD medan per kualitas (dulu petak sejauh ±200 m masih resolusi penuh), peta bayangan di mode Hemat dirender ulang tiap 3 frame, pakis/palem memakai lebih sedikit segmen, edelweis dunia versi ringan, sheen/clearcoat dimatikan di mode Hemat, hewan jauh diperbarui jarang. Ditambah resolusi dinamis: kalau rata-rata frame >40 ms, resolusi render turun bertahap (sampai 60%), dan naik lagi saat lancar.
+
+Pengetahuan Dunia, batch fauna 1: pabrik burung (makeBird) sehingga tiap burung punya proporsi, sayap, ekor, kaki, dan pola bulu sendiri; elang Jawa (sayap lebar berjari, ekor bergaris, kaki kuning bercakar) dan enggang (leher menjulur, ekor sangat panjang) dirombak. Objek bedah baru: Cendrawasih kecil (hutan hujan, bulu hias + tarian lek), Cekakak Jawa (sungai Hutan Ilmu, paruh tombak, warna struktural), Jalak Bali (Hutan Ilmu, cincin penanda pelepasliaran), Harimau Sumatra (hutan hujan, kalung GPS), Macan tutul Jawa (gunung), Domba Garut (padang ternak), Banteng (savana di antara peternakan dan gurun), Rusa timor (lereng gunung, ranggah), Ikan badut dan Ikan kerapu macan (terumbu karang; ikan kini bisa punya perairan sendiri). Pabrik kucing (makeCat) untuk kucing besar. Kawanan burung latar punya siluet per jenis (layang-layang, pelayang besar).

@@ -21,6 +21,12 @@ import SP_KERBAU from './species/kerbau.js';
 import SP_ENGGANG from './species/enggang.js';
 import SP_ELANG from './species/elangjawa.js';
 import { ELANG, EDELWEIS, CEMARA, IKLIM, GLETSER } from './objects/gunung.js';
+import { CENDRAWASIH, CEKAKAK, JALAK } from './objects/burung2.js';
+import { HARIMAU, MACAN } from './objects/kucingbesar.js';
+import { DOMBA, BANTENG, RUSA } from './objects/ternak2.js';
+import { SP_DOMBA, SP_BANTENG, SP_RUSA } from './species/ternak2.js';
+import { SP_HARIMAU, SP_MACAN } from './species/kucingbesar.js';
+import { SP_CENDRAWASIH, SP_CEKAKAK, SP_JALAK } from './species/burunglain.js';
 import { buildFarmLife, buildJungleLife, buildDesertLife, buildAlpineLife, buildRain } from './biolife.js';
 import { buildMountainDecor, buildEdelweissDissect, buildCasuarinaDissect, buildClimateDissect, buildGlacierDissect } from './mountain.js';
 import { ENGGANG, RAFFLESIA, KANTONG, TAJUK } from './objects/hutanhujan.js';
@@ -55,7 +61,7 @@ import { createSplash } from './splash.js';
 'use strict';
 const KEY='hutan-ilmu-v1',QKEY='hutan-ilmu-q';
 const TLAYERS=OBJ.layers,TREES=OBJ.specimens,QUIZ=OBJ.quiz;
-const AN=[{data:CAT,spec:SP_KUCING},{data:ruminantData('sapi'),spec:SP_SAPI,extra:[[256,30],[270,28]]},{data:ruminantData('kambing'),spec:SP_KAMBING,extra:[[258,42],[272,36]]},{data:AYAM,spec:SP_AYAM,extra:[[237,27],[241,29],[244,21],[238,21]]},{data:KUPU,spec:SP_KUPU,extra:[[-5,-1],[0,-5.5],[-255,10],[-240,25],[-270,0],[300,-46]]},{data:KATAK,spec:SP_KATAK,extra:[[-19,18],[-17.5,23.5],[-252,28],[-268,12]]},{data:BURUNG,spec:SP_BURUNG,extra:[[-9,2],[11,-5]]},{data:KEPITING,spec:SP_KEPITING,extra:[[-22,16],[-22,38]]},{data:PENYU,spec:SP_PENYU,extra:[[-12,176]]},{data:UNTA,spec:SP_UNTA,extra:[[255,235],[220,190],[150,240],[120,290]]},{data:KERBAU,spec:SP_KERBAU,extra:[[228,-12]]},{data:BEBEK,spec:SP_BEBEK,extra:[[270,-100],[258,-99],[262,-92]]},{data:ENGGANG,spec:SP_ENGGANG,extra:[[-300,-30],[-230,60],[-280,-20]]},{data:ELANG,spec:SP_ELANG,extra:[[10,-260],[-60,-300],[50,-290]]}];
+const AN=[{data:CAT,spec:SP_KUCING},{data:ruminantData('sapi'),spec:SP_SAPI,extra:[[256,30],[270,28]]},{data:ruminantData('kambing'),spec:SP_KAMBING,extra:[[258,42],[272,36]]},{data:AYAM,spec:SP_AYAM,extra:[[237,27],[241,29],[244,21],[238,21]]},{data:KUPU,spec:SP_KUPU,extra:[[-5,-1],[0,-5.5],[-255,10],[-240,25],[-270,0],[300,-46]]},{data:KATAK,spec:SP_KATAK,extra:[[-19,18],[-17.5,23.5],[-252,28],[-268,12]]},{data:BURUNG,spec:SP_BURUNG,extra:[[-9,2],[11,-5]]},{data:KEPITING,spec:SP_KEPITING,extra:[[-22,16],[-22,38]]},{data:PENYU,spec:SP_PENYU,extra:[[-12,176]]},{data:UNTA,spec:SP_UNTA,extra:[[255,235],[220,190],[150,240],[120,290]]},{data:KERBAU,spec:SP_KERBAU,extra:[[228,-12]]},{data:BEBEK,spec:SP_BEBEK,extra:[[270,-100],[258,-99],[262,-92]]},{data:ENGGANG,spec:SP_ENGGANG,extra:[[-300,-30],[-230,60],[-280,-20]]},{data:ELANG,spec:SP_ELANG,extra:[[10,-260],[-60,-300],[50,-290]]},{data:CENDRAWASIH,spec:SP_CENDRAWASIH,extra:[[-262,-18],[-290,20]]},{data:CEKAKAK,spec:SP_CEKAKAK,extra:[[236,-58],[262,-70]]},{data:JALAK,spec:SP_JALAK,extra:[[16,-6]]},{data:HARIMAU,spec:SP_HARIMAU},{data:MACAN,spec:SP_MACAN},{data:DOMBA,spec:SP_DOMBA,extra:[[262,44],[254,36]]},{data:BANTENG,spec:SP_BANTENG,extra:[[185,112],[165,98]]},{data:RUSA,spec:SP_RUSA,extra:[[-50,-205],[-70,-185]]}];
 const FI=FISH_IDS.map(function(id){const d=fishData(id);return {data:d,spec:fishSpec(d.P),fish:true}});
 const MO=['kelapa','bambu'].map(function(id){const d=monoData(id);return {data:d,mono:true,buildD:function(r){return buildMonoDissect(r,{type:id})}}});
 const LF=[{data:DAUN,leaf:true,buildD:function(r){return buildLeafDissect(r)}}];
@@ -170,7 +176,7 @@ function collide(p){
 const FARM_CLR=[{x:288,z:40,r:8},{x:COOP.x,z:COOP.z,r:7},{x:287,z:-62,r:3},{x:300,z:-45,r:4},{x:250,z:12,r:2},{x:280,z:2,r:2.5},{x:252,z:-40,r:4},{x:302,z:22,r:5}];
 const veg=await buildVegetation({scene:world,heroes:TREES,grassClear:[{x:288,z:40,r:7.2},{x:COOP.x,z:COOP.z,r:1.7},{x:287,z:-62,r:2.1},{x:300,z:-45,r:3.2},{x:250,z:12,r:1},{x:252,z:-40,r:3.6},{x:302,z:22,r:4.6},{x:270,z:43,r:1.3}],clear:[...FARM_CLR,PADDOCK,{x:4,z:-3,r:2.5},{x:-12,z:-16,r:3.5},{x:20,z:-2,r:4},{x:-18.5,z:29.5,r:2.5},{x:-27,z:14.5,r:7},{x:13,z:-8,r:2.5},{x:-250,z:20,r:12},{x:-290,z:45,r:9},{x:-220,z:-15,r:9},{x:-262,z:34,r:4},{x:-238,z:40,r:4},{x:-15,z:-215,r:24},{x:22,z:-242,r:10},{x:8,z:-198,r:4},{x:0,z:-345,r:14}].concat(MO.map(function(a){const H=a.data.specimen;return {x:H.x,z:H.z,r:5}}),[{x:-18,z:38,r:5}]),addObs:addObs,quality:quality,progress:function(f,t){loadProgress(0.1+f*0.6,t)}});
 const heroObjs=veg.heroObjs,heroHits=veg.heroHits;
-function penOf(id){return id==='sapi'||id==='kambing'?PADDOCK:id==='ayam'?COOP:null}
+function penOf(id){return id==='sapi'||id==='kambing'||id==='domba'?PADDOCK:id==='ayam'?COOP:null}
 /* hewan di dunia: dijadwalkan setelah pohon supaya tag, prompt, dan klik memakai jalur yang sama */
 AN.forEach(function(a,k){
   const H=a.data.specimen;
@@ -376,7 +382,7 @@ function sunCaption(){
   if(isAnimal()&&anOf(subject).mono){$('#sunCap').textContent=s>0.6?'Cahaya kuat: stomata di daun terbuka lebar, penguapan (transpirasi) tinggi, sehingga air naik cepat lewat xilem di berkas pembuluh. Gula hasil fotosintesis turun lewat floem.':s>0.25?'Cahaya sedang: air naik lebih pelan.':'Gelap: stomata menutup, aliran air melambat.';return}
   if(isFish()){$('#sunCap').textContent=s>0.6?'Ikan aktif: tutup insang bergerak cepat supaya lebih banyak air melewati insang, dan jantung berdetak lebih cepat.':s>0.3?'Aktivitas sedang: tutup insang membuka-menutup dengan teratur.':'Ikan beristirahat: gerakan tutup insang dan detak jantung melambat.';return}
   if(isAnimal()&&D.spec&&D.spec.capText){$('#sunCap').textContent=D.spec.capText(s);return}
-  if(isAnimal()){const v=D.vitals(s);$('#sunCap').textContent='Perkiraan: jantung '+v.bpm+' detak per menit, napas '+v.rr+' kali per menit. Saat aktif, otot butuh lebih banyak oksigen sehingga jantung dan paru bekerja lebih cepat.'+(subject!=='kucing'?' Rumen ikut berkontraksi lebih sering.':'')+' Angka ini kisaran umum, bukan patokan diagnosis.';return}
+  if(isAnimal()){const v=D.vitals(s);$('#sunCap').textContent='Perkiraan: jantung '+v.bpm+' detak per menit, napas '+v.rr+' kali per menit. Saat aktif, otot butuh lebih banyak oksigen sehingga jantung dan paru bekerja lebih cepat.'+(['sapi','kambing','kerbau','domba','banteng','rusa'].indexOf(subject)>=0?' Rumen ikut berkontraksi lebih sering.':'')+' Angka ini kisaran umum, bukan patokan diagnosis.';return}
   $('#sunCap').textContent=s>0.66?'Matahari terik: daun menguapkan banyak air (transpirasi), sehingga air tertarik naik cepat. Fotosintesis tinggi, banyak gula dikirim lewat floem.'
     :s>0.33?'Cahaya sedang: transpirasi dan fotosintesis berjalan sedang.'
     :'Cahaya rendah atau malam: stomata cenderung menutup, aliran air melambat, dan gula yang dibuat berkurang.';

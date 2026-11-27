@@ -1,4 +1,4 @@
-/* Data edukasi IKAN AIR TAWAR: mas, nila, lele, gurami, arwana.
+/* Data edukasi IKAN: air tawar (mas, nila, lele, gurami, arwana) dan laut di terumbu karang (badut, kerapu).
    P = parameter bentuk untuk generator di src/fish.js.
    CATATAN: isi sains perlu divalidasi ahli perikanan / guru biologi sebelum dipakai di sekolah. */
 
@@ -41,6 +41,20 @@ const SP = {
     P: { id: 'arwana', H: 0.72, W: 0.4, pm: 0.62, shape: 0.7, belly: 1.0, tailMin: 0.3, blunt: 0.3, arch: 0.3, mouthUp: 0.6, back: '#3e5248', side: '#d8c48a', belly2: '#f3e7c6', fin: '#b84a2e', scale: 44, scaleEdge: 'rgba(170,40,25,0.75)', scaleShine: true, metal: 0.2, caudal: 'round', dorsal: [[0.1, 0.3, 0.5, 0.1]], anal: [[0.08, 0.33, 0.55, 0.1]], pecT: 0.76, pecL: 1.3, barbels: [[0.1, -0.25, 0.06, [0.45, 0.08, 0.03], 0.03]], barbelCol: [0.6, 0.5, 0.3], iris: [0.85, 0.7, 0.3], eyeR: 0.2, eyeY: 0.4, neutral: 0.52, seed: 7 },
     world: { count: 1, school: false, depth: 0.85, scale: 0.14, speed: 0.7 },
     notes: { kulit: 'Sisik arwana sangat besar dan mengilap. Sepasang sungut di dagu membantu merasakan mangsa di permukaan air.', otak: 'Mulut arwana menghadap ke atas, cocok untuk menyambar serangga dan ikan kecil di permukaan air. Arwana bahkan bisa melompat keluar air untuk menangkap mangsa.' },
+  },
+  badut: {
+    name: 'Ikan badut', sci: 'Amphiprion ocellaris', family: 'Pomacentridae', at: [-33, 238], lake: { x: -36, z: 236, r: 14 },
+    fact: 'Ikan badut hidup di terumbu karang dan bersarang di antara tentakel anemon laut. Lendir di kulitnya membuat ia tidak tersengat. Hubungan ini saling menguntungkan (mutualisme): anemon melindungi ikan, ikan membersihkan dan menjaga anemon.',
+    P: { id: 'badut', H: 1.1, W: 0.5, pm: 0.52, shape: 0.85, belly: 1.0, tailMin: 0.3, blunt: 0.45, arch: 1.0, back: '#e0600c', side: '#f07418', belly2: '#f7a040', fin: '#e8640e', scale: 0, bands: [[0.22, 0.07, '#f8f8f4', '#151515'], [0.52, 0.09, '#f8f8f4', '#151515'], [0.86, 0.06, '#f8f8f4', '#151515']], caudal: 'round', dorsal: [[0.3, 0.75, 0.55, 0.2]], anal: [[0.3, 0.45, 0.6]], iris: [0.9, 0.5, 0.1], eyeR: 0.19, neutral: 0.5, seed: 8 },
+    world: { count: 6, school: true, depth: 0.45, scale: 0.05, speed: 0.5 },
+    notes: { kulit: 'Tiga pita putih bergaris hitam membuat ikan badut mudah dikenali. Lendir kulitnya melindunginya dari sengatan anemon.', ginjal: 'Ikan laut kebalikannya: tubuhnya kehilangan air ke laut yang asin, jadi ia meminum air laut, membuang sedikit urine pekat, dan mengeluarkan kelebihan garam lewat insang.', otak: 'Semua ikan badut lahir jantan. Ikan terbesar dalam satu anemon berubah menjadi betina (protandri).' },
+  },
+  kerapu: {
+    name: 'Ikan kerapu macan', sci: 'Epinephelus fuscoguttatus', family: 'Serranidae', at: [-40, 232], lake: { x: -36, z: 236, r: 14 },
+    fact: 'Kerapu macan adalah ikan pemangsa di terumbu karang. Ia diam di celah karang lalu menyergap ikan kecil dan udang dengan mulutnya yang lebar. Kerapu banyak dibudidayakan di keramba jaring apung di laut.',
+    P: { id: 'kerapu', H: 0.95, W: 0.58, pm: 0.55, shape: 0.75, belly: 1.0, tailMin: 0.3, blunt: 0.4, arch: 0.8, mouthUp: 0.2, back: '#5a4a32', side: '#8a7350', belly2: '#d6c6a0', fin: '#6e5a3c', scale: 34, spots: 120, spotCol: 'rgba(55,38,20,0.7)', caudal: 'round', dorsal: [[0.15, 0.62, 0.45, 0.15]], anal: [[0.3, 0.38, 0.5]], iris: [0.8, 0.65, 0.3], eyeR: 0.14, neutral: 0.5, seed: 9 },
+    world: { count: 2, school: false, depth: 0.15, bedOff: 0.4, scale: 0.15, speed: 0.35 },
+    notes: { kulit: 'Bintik-bintik cokelat menyamarkan kerapu di antara karang.', ginjal: 'Sebagai ikan laut, kerapu meminum air laut dan mengeluarkan kelebihan garam lewat insang.', otak: 'Kerapu umumnya lahir betina, lalu sebagian berubah menjadi jantan saat dewasa dan besar (protogini).' },
   },
 };
 
@@ -99,6 +113,8 @@ const QUIZ_SP = {
   nila: ['Apa yang dilakukan induk betina nila dengan telurnya?', ['Mengerami di dalam mulut', 'Menempelkan di daun', 'Mengubur di pasir lalu pergi', 'Menitipkan pada ikan lain'], 'Nila termasuk pengeram mulut. Anak-anaknya juga berlindung di mulut induk saat ada bahaya.'],
   lele: ['Mengapa lele bisa hidup di air yang miskin oksigen?', ['Punya organ arborescent untuk menghirup udara', 'Tidak butuh oksigen', 'Insangnya sangat besar', 'Menyimpan oksigen di sisik'], 'Organ bercabang di atas insang menyerap oksigen dari udara yang dihirup di permukaan.'],
   gurami: ['Sirip perut gurami yang panjang seperti benang berfungsi sebagai ...', ['Alat peraba', 'Alat bernapas', 'Penyimpan telur', 'Pelampung'], 'Gurami memakai sirip perutnya untuk meraba sekitar, terutama di air yang keruh.'],
+  badut: ['Hubungan ikan badut dengan anemon laut disebut ...', ['Mutualisme (saling menguntungkan)', 'Parasitisme', 'Kompetisi', 'Predasi'], 'Anemon melindungi ikan badut, ikan badut menjaga dan membersihkan anemon.'],
+  kerapu: ['Bagaimana cara kerapu berburu?', ['Diam di celah karang lalu menyergap mangsa', 'Menyaring plankton', 'Memakan rumput laut', 'Mengejar mangsa jauh ke laut lepas'], 'Mulutnya yang lebar menyedot mangsa dengan cepat.'],
   arwana: ['Mengapa arwana Asia tidak boleh ditangkap dan diperdagangkan sembarangan?', ['Karena dilindungi dan terdaftar di CITES Apendiks I', 'Karena beracun', 'Karena hanya hidup di laut', 'Karena tidak bisa dimakan'], 'Arwana Asia terancam punah di alam. Perdagangan hanya boleh dari penangkaran resmi.'],
 };
 
@@ -109,8 +125,8 @@ export function fishData(id, k) {
   if (S.extraLayer) layers.splice(5, 0, Object.assign({}, S.extraLayer, S.notes.labirin ? { fact: S.extraLayer.fact + ' ' + S.notes.labirin } : {}));
   const qs = QUIZ_BASE.concat([QUIZ_SP[id]]).map((q, i) => ({ id: id + 'q' + i, sp: id, q: q[0], o: q[1], a: 0, e: q[2] }));
   return {
-    id, name: S.name, layers, quiz: qs, P: S.P, world: S.world,
-    specimen: { id, kind: 'fish', name: S.name, short: S.name.toLowerCase(), sci: S.sci, family: S.family, x: -34, z: 26, top: 0, mkOff: 0, promptY: -0.5, reach: 4, tagNear: 0, needSwim: true,
+    id, name: S.name, layers, quiz: qs, P: S.P, world: S.lake ? { ...S.world, lake: S.lake } : S.world,
+    specimen: { id, kind: 'fish', name: S.name, short: S.name.toLowerCase(), sci: S.sci, family: S.family, x: S.at ? S.at[0] : -34, z: S.at ? S.at[1] : 26, top: 0, mkOff: 0, promptY: -0.5, reach: 4, tagNear: 0, needSwim: true,
       fact: S.fact, hint: 'Geser Kedalaman untuk mengupas lapisan. Geser Gelembung renang sampai ikan melayang diam. Nyalakan atau matikan aliran berlawanan arah untuk melihat cara insang bekerja (titik biru air, titik merah darah).' },
   };
 }

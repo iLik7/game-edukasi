@@ -127,10 +127,17 @@ function edelweisBaked(r, s) { const e = edelweissGeo(r, s); return bake([paint(
 function flock(scene, o) {
   const G = new THREE.Group(); scene.add(G); const birds = [], r = rng(o.seed || 1);
   const bm = new THREE.MeshStandardMaterial({ color: o.color, roughness: 0.8, side: THREE.DoubleSide });
-  const s = o.size || 1, wingG = new THREE.PlaneGeometry(0.9 * s, 0.32 * s).translate(0.45 * s, 0, 0).rotateX(-Math.PI / 2);
+  /* siluet per jenis: layang-layang (sayap runcing menyapu ke belakang, ekor bercabang), pelayang besar (sayap lebar berjari, ekor kipas), burung kecil */
+  const s = o.size || 1, K = o.kind || 'small', sh = new THREE.Shape();
+  if (K === 'swallow') { sh.moveTo(0, 0.12); sh.quadraticCurveTo(0.5, 0.1, 1.0, -0.35); sh.lineTo(0.95, -0.4); sh.quadraticCurveTo(0.45, -0.12, 0, -0.08); }
+  else if (K === 'soar') { sh.moveTo(0, 0.16); sh.lineTo(0.75, 0.14); for (let k = 0; k < 5; k++) { const z0 = 0.12 - k * 0.07; sh.lineTo(1.0 + (k % 2 ? 0 : 0.06), z0 - 0.02); sh.lineTo(0.82, z0 - 0.05); } sh.lineTo(0.7, -0.2); sh.lineTo(0, -0.18); }
+  else { sh.moveTo(0, 0.1); sh.quadraticCurveTo(0.55, 0.1, 0.8, -0.05); sh.quadraticCurveTo(0.45, -0.16, 0, -0.12); }
+  const wingG = new THREE.ShapeGeometry(sh, 4).scale(s, s, s).rotateX(Math.PI / 2);
+  const tailSh = new THREE.Shape(); if (K === 'swallow') { tailSh.moveTo(-0.04, 0); tailSh.lineTo(-0.16, -0.42); tailSh.lineTo(0, -0.22); tailSh.lineTo(0.16, -0.42); tailSh.lineTo(0.04, 0); } else { tailSh.moveTo(-0.05, 0); tailSh.lineTo(K === 'soar' ? -0.16 : -0.09, -0.3); tailSh.lineTo(K === 'soar' ? 0.16 : 0.09, -0.3); tailSh.lineTo(0.05, 0); }
+  const tailG = new THREE.ShapeGeometry(tailSh).scale(s, s, s).rotateX(Math.PI / 2).translate(0, 0, -0.3 * s);
   for (let i = 0; i < o.n; i++) {
-    const b = new THREE.Group(), body = new THREE.Mesh(ellG([0.12 * s, 0.1 * s, 0.38 * s], [0, 0, 0], 6), bm), wl = new THREE.Mesh(wingG, bm), wr = new THREE.Mesh(wingG, bm); wr.scale.x = -1;
-    b.add(body, wl, wr); G.add(b); birds.push({ b, wl, wr, ph: r() * TAU, rad: o.R * (0.5 + r() * 0.5), h: o.h + r() * (o.hv || 6), sp: (o.sp || 0.15) * (0.8 + r() * 0.4) * (r() < 0.5 ? 1 : -1), off: V((r() - 0.5) * 10, 0, (r() - 0.5) * 10) });
+    const b = new THREE.Group(), body = new THREE.Mesh(mergeGeometries([ellG([0.1 * s, 0.09 * s, 0.34 * s], [0, 0, 0], 6), ellG([0.08 * s, 0.08 * s, 0.09 * s], [0, 0.03 * s, 0.33 * s], 6)].map(ni)), bm), wl = new THREE.Mesh(wingG, bm), wr = new THREE.Mesh(wingG, bm); wr.scale.x = -1;
+    b.add(body, wl, wr, new THREE.Mesh(tailG, bm)); G.add(b); birds.push({ b, wl, wr, ph: r() * TAU, rad: o.R * (0.5 + r() * 0.5), h: o.h + r() * (o.hv || 6), sp: (o.sp || 0.15) * (0.8 + r() * 0.4) * (r() < 0.5 ? 1 : -1), off: V((r() - 0.5) * 10, 0, (r() - 0.5) * 10) });
   }
   return { G, update(T, show) { G.visible = show; if (!show) return; for (const q of birds) { const a = q.ph + T * q.sp, x = o.x + q.off.x + Math.cos(a) * q.rad, z = o.z + q.off.z + Math.sin(a) * q.rad; q.b.position.set(x, q.h + Math.sin(T * 0.5 + q.ph) * 1.5, z); q.b.rotation.y = -a + (q.sp > 0 ? 0 : Math.PI); q.b.rotation.z = (q.sp > 0 ? -1 : 1) * 0.25;
     const fl = o.glide ? (Math.sin(T * 0.4 + q.ph) > 0.7 ? Math.sin(T * 9 + q.ph) * 0.5 : 0.08) : Math.sin(T * (o.flap || 11) + q.ph) * 0.6; q.wl.rotation.z = fl; q.wr.rotation.z = -fl; } } };
@@ -228,7 +235,7 @@ export function buildFarmLife(scene, H, o) {
   { const B0 = bananaGeo(rng(11), false), B1 = bananaGeo(rng(12), true), l0 = [], l1 = []; for (const [x, z] of o.pisang) { (r() < 0.4 ? l1 : l0).push({ x, y: lowAt(H, x, z, 0.2) - 0.05, z, ry: r() * TAU, s: 0.85 + r() * 0.35 }); obs.push([x, z, 0.35]); }
     const lm = leafMat(); inst(G, B0, lm, l0); inst(G, B1, lm, l1); }
   /* fauna latar: kuntul di sawah, burung layang-layang berputar di atas */
-  const eg = egrets(G, H, o.kuntul); const sw = flock(G, { x: o.center[0], z: o.center[1], R: 40, h: H(o.center[0], o.center[1]) + 16, hv: 6, n: 9, color: C(0.1, 0.1, 0.14), size: 0.35, sp: 0.35, flap: 14, seed: 3 });
+  const eg = egrets(G, H, o.kuntul); const sw = flock(G, { x: o.center[0], z: o.center[1], R: 40, h: H(o.center[0], o.center[1]) + 16, hv: 6, n: 9, color: C(0.1, 0.1, 0.14), size: 0.35, sp: 0.35, flap: 14, seed: 3, kind: 'swallow' });
   upd.push((P, T) => { eg.update(T); sw.update(T, true); });
   return { obs, clear: o.clear, update(P, T, dt) { G.visible = Math.hypot(P.x - o.center[0], P.z - o.center[1]) < 260; if (G.visible) for (const f of upd) f(P, T, dt); } };
 }
@@ -294,7 +301,7 @@ export function buildDesertLife(scene, H, o) {
   /* gulma terguling (tumbleweed) yang menggelinding tertiup angin */
   const tw = [], TG = tumbleGeo(rng(37)), tm = solidMat(1); for (let i = 0; i < 5; i++) { const m = new THREE.Mesh(TG, tm); m.castShadow = true; G.add(m); tw.push({ m, t: r() * 100, lane: (r() - 0.5) * 120, s: 0.8 + r() * 0.5 }); }
   /* fauna: burung pemakan bangkai berputar, kadal di pasir */
-  const vul = flock(G, { x: o.center[0], z: o.center[1], R: 35, h: 42, hv: 10, n: 4, color: C(0.16, 0.12, 0.1), size: 1.6, sp: 0.07, glide: true, seed: 8 });
+  const vul = flock(G, { x: o.center[0], z: o.center[1], R: 35, h: 42, hv: 10, n: 4, color: C(0.16, 0.12, 0.1), size: 1.6, sp: 0.07, glide: true, seed: 8, kind: 'soar' });
   const lz = lizards(G, H, { pts: put(10, 110, 1, (x, z) => [x, z]), color: C(0.78, 0.62, 0.42), s: 1.3, speed: 4, R: 7, seed: 10 });
   return { obs, oasis, update(P, T, dt) { const show = Math.hypot(P.x - o.center[0], P.z - o.center[1]) < 260; G.visible = show; if (!show) return;
     for (const q of tw) { const u = ((q.t + T * 2.2) % 160) - 80, x = o.center[0] + u * 0.8 + q.lane * 0.3, z = o.center[1] + u * 0.6 - q.lane * 0.5; q.m.visible = ok(x, z, 0); q.m.position.set(x, H(x, z) + 0.42 * q.s + Math.abs(Math.sin(T * 3 + q.lane)) * 0.3, z); q.m.rotation.set(T * 3 + q.lane, 0.6, 0); q.m.scale.setScalar(q.s); }
@@ -316,7 +323,7 @@ export function buildAlpineLife(scene, H, o) {
   const N = 700, sp = new Float32Array(N * 3), sb = []; for (let i = 0; i < N; i++) sb.push([(r() - 0.5) * 60, r() * 30, (r() - 0.5) * 60, r() * TAU]);
   const sg = new THREE.BufferGeometry(); sg.setAttribute('position', new THREE.BufferAttribute(sp, 3));
   const snow = new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 0.12, transparent: true, opacity: 0.9, depthWrite: false })); snow.frustumCulled = false; snow.userData.noAO = true; G.add(snow);
-  const birds = flock(G, { x: o.center[0], z: o.center[1] + 60, R: 45, h: 120, hv: 15, n: 6, color: C(0.15, 0.12, 0.1), size: 0.45, sp: 0.25, flap: 12, seed: 12 });
+  const birds = flock(G, { x: o.center[0], z: o.center[1] + 60, R: 45, h: 120, hv: 15, n: 6, color: C(0.15, 0.12, 0.1), size: 0.45, sp: 0.25, flap: 12, seed: 12, kind: 'swallow' });
   return { obs, update(P, T, dt) { const show = Math.hypot(P.x - o.center[0], P.z - o.center[1]) < 280; G.visible = show; if (!show) return;
     const ph = H(P.x, P.z), k = smooth(78, 100, ph); snow.visible = k > 0.01; snow.material.opacity = 0.9 * k;
     if (snow.visible) { for (let i = 0; i < N; i++) { const b = sb[i]; let y = ((b[1] - T * 1.6) % 30 + 30) % 30; sp[i * 3] = P.x + b[0] + Math.sin(T * 0.8 + b[3]) * 0.6; sp[i * 3 + 1] = P.y - 4 + y; sp[i * 3 + 2] = P.z + b[2] + Math.cos(T * 0.6 + b[3]) * 0.6; } sg.attributes.position.needsUpdate = true; }

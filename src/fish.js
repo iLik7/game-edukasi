@@ -94,6 +94,9 @@ function skinTexture(P) {
     for (let y = 0; y < N; y++) { const v = y / N, d = Math.sin(TAU * v); c.copy(S).lerp(d > 0 ? B : Y, Math.pow(Math.abs(d), 0.8)); x.fillStyle = '#' + c.getHexString(); x.fillRect(0, y, N, 1); }
     const r = rng(P.seed || 3);
     if (P.bars) for (let i = 0; i < P.bars; i++) { x.fillStyle = 'rgba(20,25,30,0.16)'; x.fillRect(N * (0.28 + i * 0.065), 0, N * 0.03, N); }
+    /* pita tegak penuh (ikan badut) dan bintik (kerapu) */
+    if (P.bands) for (const [u, w, col, edge] of P.bands) { if (edge) { x.fillStyle = edge; x.fillRect(N * (u - w / 2) - N * 0.012, 0, N * w + N * 0.024, N); } x.fillStyle = col; x.fillRect(N * (u - w / 2), 0, N * w, N); }
+    if (P.spots) { const rs = rng((P.seed || 3) + 50); for (let i = 0; i < P.spots; i++) { x.fillStyle = P.spotCol || 'rgba(60,40,20,0.6)'; x.beginPath(); x.ellipse(rs() * N, rs() * N, N * 0.012 + rs() * N * 0.012, N * 0.02 + rs() * N * 0.015, 0, 0, TAU); x.fill(); } }
     if (P.scale) {
       const s = P.scale; x.lineWidth = s > 30 ? 3 : 1.4;
       for (let j = 0; j < N / (s * 0.6) + 1; j++) for (let i = 0; i < N / s + 1; i++) {
@@ -218,9 +221,9 @@ export function buildFishSchools(scene, env, list, lake) {
       { float tt = clamp((${HL.toFixed(2)} - position.x) / ${L.toFixed(2)}, 0.0, 1.0); float ph = float(gl_InstanceID) * 2.37;
         transformed.z += sin(position.x * 1.1 + uTime * ${freq.toFixed(2)} + ph) * ${amp.toFixed(3)} * tt * tt; }`); }; };
   const r = rng(77);
-  const pick = (pref, bedOff) => {
-    for (let k = 0; k < 20; k++) { const a = r() * TAU, rr = Math.sqrt(r()) * (lake.r - 4), x = lake.x + Math.cos(a) * rr, z = lake.z + Math.sin(a) * rr, bed = heightAt(x, z); if (WATER - bed > 1.0) { const y = lerp(bed + bedOff, WATER - 0.35, pref + (r() - 0.5) * 0.25); return [x, clamp(y, bed + 0.25, WATER - 0.3), z]; } }
-    return [lake.x, WATER - 1, lake.z];
+  const pick = (pref, bedOff, lk = lake) => {
+    for (let k = 0; k < 20; k++) { const a = r() * TAU, rr = Math.sqrt(r()) * (lk.r - 4), x = lk.x + Math.cos(a) * rr, z = lk.z + Math.sin(a) * rr, bed = heightAt(x, z); if (WATER - bed > 1.0) { const y = lerp(bed + bedOff, WATER - 0.35, pref + (r() - 0.5) * 0.25); return [x, clamp(y, bed + 0.25, WATER - 0.3), z]; } }
+    return [lk.x, WATER - 1, lk.z];
   };
   for (const item of list) {
     const P = item.P, spec = fishSpec(P), n = item.count;
@@ -237,7 +240,7 @@ export function buildFishSchools(scene, env, list, lake) {
     const body = new THREE.InstancedMesh(merge([parts.body, parts.head]), skin, n), fins = new THREE.InstancedMesh(finAll, fin, n), eyes = new THREE.InstancedMesh(merge(eyeG), eyeM, n);
     for (const m of [body, fins, eyes]) { m.frustumCulled = false; m.castShadow = false; m.userData.noAO = true; scene.add(m); }
     const fish = [];
-    for (let i = 0; i < n; i++) { const p = pick(item.depth, item.bedOff || 0.35); fish.push({ p: V3(p), v: new THREE.Vector3(r() - 0.5, 0, r() - 0.5).multiplyScalar(0.3), tgt: V3(pick(item.depth, item.bedOff || 0.35)), off: new THREE.Vector3((r() - 0.5) * 2, (r() - 0.5) * 0.5, (r() - 0.5) * 2), yaw: r() * TAU, pitch: 0 }); }
+    for (let i = 0; i < n; i++) { const p = pick(item.depth, item.bedOff || 0.35, item.lake || lake); fish.push({ p: V3(p), v: new THREE.Vector3(r() - 0.5, 0, r() - 0.5).multiplyScalar(0.3), tgt: V3(pick(item.depth, item.bedOff || 0.35, item.lake || lake)), off: new THREE.Vector3((r() - 0.5) * 2, (r() - 0.5) * 0.5, (r() - 0.5) * 2), yaw: r() * TAU, pitch: 0 }); }
     groups.push({ item, P, body, fins, eyes, fish, scale: item.scale });
   }
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YZX'), sc = new THREE.Vector3(), des = new THREE.Vector3(), away = new THREE.Vector3();
@@ -245,19 +248,19 @@ export function buildFishSchools(scene, env, list, lake) {
     groups,
     update(dt, T, P, eyeY) {
       U.uTime.value = T;
-      const far = Math.hypot(P.x - lake.x, P.z - lake.z) > lake.r + 35;
       for (const G of groups) {
+        const lk = G.item.lake || lake, far = Math.hypot(P.x - lk.x, P.z - lk.z) > lk.r + 35;
         G.body.visible = G.fins.visible = G.eyes.visible = !far; if (far) continue;
         const sp = G.item.speed || 0.6;
         G.fish.forEach((f, i) => {
           const lead = G.fish[0], tgt = i === 0 || !G.item.school ? f.tgt : des.copy(lead.p).add(f.off);
-          if (i === 0 || !G.item.school) { if (f.p.distanceTo(f.tgt) < 0.8) f.tgt.copy(V3(pick(G.item.depth, G.item.bedOff || 0.35))); }
+          if (i === 0 || !G.item.school) { if (f.p.distanceTo(f.tgt) < 0.8) f.tgt.copy(V3(pick(G.item.depth, G.item.bedOff || 0.35, lk))); }
           des.copy(tgt).sub(f.p); const d = des.length(); if (d > 0.001) des.multiplyScalar(sp / d);
           away.set(f.p.x - P.x, f.p.y - eyeY, f.p.z - P.z); const pd = away.length();
           if (pd < 1.6) des.add(away.multiplyScalar((1.6 - pd) * 1.5 / Math.max(0.1, pd)));
           f.v.lerp(des, Math.min(1, dt * 1.2)); f.p.addScaledVector(f.v, dt);
           const bed = heightAt(f.p.x, f.p.z); f.p.y = clamp(f.p.y, bed + 0.22, WATER - 0.25);
-          if (Math.hypot(f.p.x - lake.x, f.p.z - lake.z) > lake.r - 3) { f.p.x += (lake.x - f.p.x) * dt * 0.5; f.p.z += (lake.z - f.p.z) * dt * 0.5; }
+          if (Math.hypot(f.p.x - lk.x, f.p.z - lk.z) > lk.r - 3) { f.p.x += (lk.x - f.p.x) * dt * 0.5; f.p.z += (lk.z - f.p.z) * dt * 0.5; }
           const hs = Math.hypot(f.v.x, f.v.z);
           if (hs > 0.02) { const want = Math.atan2(-f.v.z, f.v.x); let da = want - f.yaw; da = Math.atan2(Math.sin(da), Math.cos(da)); f.yaw += da * Math.min(1, dt * 3); }
           f.pitch += (clamp(Math.atan2(f.v.y, hs + 0.01), -0.5, 0.5) - f.pitch) * Math.min(1, dt * 3);

@@ -5,18 +5,22 @@ import { lerp } from '../util.js';
 /* Spec KUCING (Felis catus). Satuan model ~0,1 m, tanah di y = -1.6. */
 const HEAD_P = [3.0, 0.85, 0], TAIL_P = [-2.6, 0.2, 0];
 const LEGS = [[1.75, -0.3, 0.58], [1.75, -0.3, -0.58], [-1.7, -0.1, 0.65], [-1.7, -0.1, -0.65]];
-const TAIL = [[-2.6, 0.2, 0], [-3.4, 0.45, 0.05], [-4.1, 1.1, 0.1], [-4.4, 2.0, 0], [-4.3, 2.5, -0.1]];
+const TAIL0 = [[-2.6, 0.2, 0], [-3.4, 0.45, 0.05], [-4.1, 1.1, 0.1], [-4.4, 2.0, 0], [-4.3, 2.5, -0.1]];
 const GUT = [[0.0, -0.62, -0.1], [-0.45, -0.72, 0.4], [-0.9, -0.6, -0.4], [-1.2, -0.74, 0.4], [-1.5, -0.55, -0.35], [-1.7, -0.3, 0.2], [-2.0, -0.15, 0], [-2.7, -0.1, 0]];
 
-let furTex = null;
+const furTexs = {};
 function tabby() {
-  return furTex || (furTex = hairTexture('#b4793c', (x, N, r) => {
+  return furTexs.tabby || (furTexs.tabby = hairTexture('#b4793c', (x, N, r) => {
     for (let i = 0; i < 18; i++) { const px = (i / 18) * N + r() * 8, w = 5 + r() * 9; x.fillStyle = 'rgba(48,28,14,0.55)'; x.beginPath(); x.moveTo(px, 0);
       for (let y = 0; y <= N; y += 16) x.lineTo(px + Math.sin(y * 0.06 + i) * 6, y); for (let y = N; y >= 0; y -= 16) x.lineTo(px + w + Math.sin(y * 0.06 + i) * 6, y); x.fill(); }
   }, 11));
 }
 
-export default {
+/* PABRIK KUCING BESAR: kucing, harimau, macan tutul memakai rangka yang sama dengan corak, ekor, dan telinga berbeda.
+   o.tex: fungsi tekstur bulu; o.tail: titik-titik ekor; o.roundEars; o.belly: warna perut terang. */
+export function makeCat(o = {}) {
+  const TAIL = o.tail || TAIL0, tex = o.tex || tabby;
+  return {
   id: 'kucing', groundY: -1.6, worldScale: 0.1, hitR: 0.75, hitY: 0.35,
   pivots: { head: HEAD_P, tail: TAIL_P, legs: LEGS },
   walk: { speed: 0.9, step: 5.5, swing: 0.6, radius: 6, keep: 1.6, tailA: 0.28 },
@@ -25,18 +29,19 @@ export default {
   bodyParts(sh) {
     setSH(sh);
     const body = merge([ell([2.55, 1.12, 0.95], [0, 0, 0], 28), ell([1.3, 1.15, 0.95], [1.35, -0.05, 0]), ell([1.2, 1.15, 1.02], [-1.55, -0.05, 0]), ell([2.1, 0.9, 0.9], [0, -0.3, 0]), limb([2.2, 0.3, 0], [3.0, 0.85, 0], 0.78, 0.62)]);
-    const ears = [1, -1].map((s) => cone(0.36, 0.7, [3.4, 1.85, s * 0.52], [s * 0.28, Math.PI / 4, 0], 4));
+    const ears = [1, -1].map((s) => o.roundEars ? ell([0.18, 0.32, 0.3], [3.35, 1.78, s * 0.55], 10, [s * 0.3, 0, 0]) : cone(0.36, 0.7, [3.4, 1.85, s * 0.52], [s * 0.28, Math.PI / 4, 0], 4));
     const head = rel(merge([ell([0.85, 0.78, 0.82], [3.55, 1.1, 0]), ell([0.42, 0.3, 0.42], [4.3, 0.88, 0]), ell([0.45, 0.38, 0.7], [3.8, 0.85, 0]), ...ears]), HEAD_P);
     const tail = rel(merge([tube(TAIL, 0.2, 28, 8), ell([0.2, 0.2, 0.2], TAIL[4], 10)]), TAIL_P);
     const legs = LEGS.map((p, i) => i < 2
       ? merge([limb([0, 0, 0], [0.1, -0.7, 0], 0.36, 0.27), limb([0.1, -0.7, 0], [0.05, -1.28, 0], 0.25, 0.2), ell([0.34, 0.17, 0.26], [0.2, -1.34, 0], 14)])
       : merge([ell([0.6, 0.85, 0.52], [0, -0.45, 0]), limb([0, -0.8, 0], [-0.2, -1.28, 0], 0.3, 0.2), ell([0.36, 0.17, 0.27], [-0.05, -1.42, 0], 14)]));
+    const extra = o.belly ? [[merge([ell([2.0, 0.55, 0.78], [0.1, -0.62, 0], 22), ell([0.55, 0.3, 0.55], [4.05, 0.6, 0], 14)]), 'belly']] : undefined;
     setSH(1);
-    return { body, head, tail, legs };
+    return { body, head, tail, legs, extra };
   },
-  skinMats() { return furMat(tabby()); },
+  skinMats() { const f = furMat(tex()); if (!o.belly) return f; return { body: f, head: f, tail: f, legs: f, belly: new THREE.MeshPhysicalMaterial({ color: C(...o.belly), roughness: 0.9, sheen: 1, sheenColor: new THREE.Color(1, 1, 1) }) }; },
   face(A, HP) {
-    const mats = addEyes(A.head, HP, { p: [4.18, 1.27, 0.4], r: 0.2, scale: [0.7, 1, 1], iris: [0.5, 0.72, 0.18], pupil: 'slit' });
+    const mats = addEyes(A.head, HP, { p: [4.18, 1.27, 0.4], r: 0.2, scale: [0.7, 1, 1], iris: o.iris || [0.5, 0.72, 0.18], pupil: o.pupil || 'slit' });
     const noseM = new THREE.MeshStandardMaterial({ color: 0xd98a8a, roughness: 0.5, transparent: true });
     const wM = new THREE.LineBasicMaterial({ color: 0xf5efe6, transparent: true, opacity: 0.9 });
     const n = new THREE.Mesh(ell([0.09, 0.07, 0.12], [4.7 - HP[0], 0.98 - HP[1], 0], 10), noseM); A.head.add(n);
@@ -71,4 +76,6 @@ export default {
     return { heart, lungs };
   },
   food: { main: [[4.35, 0.82, 0], [3.4, 0.6, 0], [2.3, 0.25, 0], [1.0, -0.3, -0.15], [0.1, -0.5, -0.3], ...GUT] },
-};
+  };
+}
+export default makeCat();

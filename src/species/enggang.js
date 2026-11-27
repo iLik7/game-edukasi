@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { merge, C, ell, limb, cone } from '../animal.js';
-import BURUNG from './burung.js';
+import { makeBird } from './burung.js';
+/* bentuk enggang: badan panjang, leher menjulur, kepala relatif kecil di balik paruh raksasa, ekor sangat panjang, sayap lebar berjari, kaki pendek */
+const BURUNG = makeBird({ id: 'enggang', len: 1.25, girth: 0.95, head: 0.85, neck: [0.18, 0.12], tailL: 1.9, tailW: 1.25, tailDroop: 0.18,
+  wingL: 1.3, wingW: 1.45, fingers: 5, legL: 0.65, legR: 1.35, legCol: [0.25, 0.25, 0.25], beak: 'none', cheek: null, eye: { r: 0.08, iris: [0.8, 0.12, 0.08] },
+  back: { base: '#141416', dark: 'rgba(0,0,0,0.5)', light: 'rgba(60,70,80,0.3)' }, wing: { lead: '#1a1a1e', mid: '#111114', trail: '#060608', covert: 'rgba(70,80,90,0.3)', quill: 'rgba(80,80,90,0.6)' } });
+const HX = BURUNG.birdK.HEAD_P[0] - 0.75, HY = BURUNG.birdK.HEAD_P[1] - 0.45;
 import { lerp } from '../util.js';
 
 /* Spec ENGGANG CULA (Buceros rhinoceros), turunan kerangka burung: tubuh hitam, ekor putih bergaris hitam,
@@ -17,12 +22,12 @@ export default {
     const black = new THREE.MeshPhysicalMaterial({ color: C(0.06, 0.06, 0.07), roughness: 0.55, sheen: 0.6, sheenColor: new THREE.Color(0.15, 0.2, 0.25) });
     const white = new THREE.MeshStandardMaterial({ color: C(0.92, 0.91, 0.88), roughness: 0.8 });
     const tail = new THREE.MeshStandardMaterial({ map: tailTex(), roughness: 0.8 });
-    const wings = new THREE.MeshStandardMaterial({ color: C(0.07, 0.07, 0.08), roughness: 0.7, side: THREE.DoubleSide });
+    const wings = BURUNG.skinMats().wings;
     return { body: black, head: black, tail, legs: black, belly: black, vent: white, wings };
   },
   face(A, HP) {
     const mats = BURUNG.face(A, HP);
-    const o = (x, y, z) => [x - HP[0], y - HP[1], z - HP[2]];
+    const o = (x, y, z) => [x + HX - HP[0], y + HY - HP[1], z - HP[2]];
     const ivory = new THREE.MeshStandardMaterial({ color: C(0.95, 0.85, 0.55), roughness: 0.35, transparent: true });
     const casM = new THREE.MeshStandardMaterial({ color: C(0.95, 0.42, 0.1), roughness: 0.35, transparent: true });
     /* paruh besar sedikit melengkung ke bawah */
@@ -34,7 +39,7 @@ export default {
   organs(addO, organMat) {
     const R = BURUNG.organs(addO, organMat);
     /* cula berongga seperti sarang lebah (ringan) */
-    addO('cula', merge([ell([0.4, 0.11, 0.08], [1.62, 0.92, 0], 12, [0, 0, -0.1]), limb([1.9, 0.92, 0], [2.2, 1.12, 0], 0.09, 0.03, 8)]), organMat([0.95, 0.6, 0.3], 0.4, 0.4));
+    addO('cula', merge([ell([0.4, 0.11, 0.08], [1.62 + HX, 0.92 + HY, 0], 12, [0, 0, -0.1]), limb([1.9 + HX, 0.92 + HY, 0], [2.2 + HX, 1.12 + HY, 0], 0.09, 0.03, 8)]), organMat([0.95, 0.6, 0.3], 0.4, 0.4));
     return R;
   },
 };
