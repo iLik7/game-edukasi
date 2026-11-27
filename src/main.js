@@ -32,6 +32,7 @@ import { buildSoilDissect, buildRockDissect, buildWaterCycleDissect, buildSoilBa
 import BUNGA from './objects/bunga.js';
 import { buildHibiscusBush, buildFlowerDissect } from './flower.js';
 import { createAudio } from './audio.js';
+import { createNav, CATS } from './nav.js';
 import { createSplash } from './splash.js';
 
 (async function(){
@@ -120,6 +121,7 @@ const river=buildRiver(world);
 /* obstacles */
 const GRID=8,grid=new Map();
 function addObs(x,z,r){const k=Math.floor(x/GRID)+','+Math.floor(z/GRID);let a=grid.get(k);if(!a){a=[];grid.set(k,a)}a.push({x:x,z:z,r:r})}
+function blocked(x,z,m){const ix=Math.floor(x/GRID),iz=Math.floor(z/GRID);for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){const arr=grid.get((ix+a)+','+(iz+b));if(!arr)continue;for(let i=0;i<arr.length;i++){const o=arr[i];if(Math.hypot(x-o.x,z-o.z)<o.r+(m||0.6))return true}}return false}
 function collide(p){
   const ix=Math.floor(p.x/GRID),iz=Math.floor(p.z/GRID);
   for(let a=-1;a<=1;a++)for(let b=-1;b<=1;b++){
@@ -136,7 +138,7 @@ const heroObjs=veg.heroObjs,heroHits=veg.heroHits;
 /* hewan di dunia: dijadwalkan setelah pohon supaya tag, prompt, dan klik memakai jalur yang sama */
 AN.forEach(function(a,k){
   const H=a.data.specimen;
-  a.w=buildWorldAnimal(world,{heightAt:heightAt,WATER:WATER},a.spec,{x:H.x,z:H.z},404+k*31,(a.data.id==='sapi'||a.data.id==='kambing')?PADDOCK:null);
+  a.w=buildWorldAnimal(world,{heightAt:heightAt,WATER:WATER,blocked:blocked},a.spec,{x:H.x,z:H.z},404+k*31,(a.data.id==='sapi'||a.data.id==='kambing')?PADDOCK:null);
   const mk=new THREE.Mesh(new THREE.OctahedronGeometry(a.data.id==='sapi'?0.3:0.16,0),new THREE.MeshStandardMaterial({color:0xffd35a,emissive:0xffa800,emissiveIntensity:2.2,roughness:0.3}));mk.userData.noAO=true;world.add(mk);
   const rr=a.data.id==='sapi'?1.6:a.data.id==='kambing'?0.9:0.55;
   const rg=new THREE.RingGeometry(rr,rr+0.1,48,1);rg.rotateX(-Math.PI/2);
@@ -144,7 +146,7 @@ AN.forEach(function(a,k){
   a.w.hit.userData.hero=a.hi;heroHits.push(a.w.hit);
   heroObjs.push({g:a.w.group,mk:mk,ring:ring,y:a.w.y});
   a.callT=4+k*5;
-  a.extraW=(a.extra||[]).map(function(p,j){return buildWorldAnimal(world,{heightAt:heightAt,WATER:WATER},a.spec,{x:p[0],z:p[1]},900+k*17+j*5,null)});
+  a.extraW=(a.extra||[]).map(function(p,j){return buildWorldAnimal(world,{heightAt:heightAt,WATER:WATER,blocked:blocked},a.spec,{x:p[0],z:p[1]},900+k*17+j*5,null)});
 });
 /* ikan di danau: kawanan instanced; spesimen bedah mengikuti ikan pertama tiap jenis */
 const fishW=buildFishSchools(world,{heightAt:heightAt,WATER:WATER},FI.map(function(a){return Object.assign({P:a.data.P},a.data.world)}),LAKE);
@@ -223,6 +225,8 @@ ECO.forEach(function(a){
   const m=new THREE.Mesh(mergeGeo(posts.concat(rails)),wood);m.castShadow=true;m.receiveShadow=true;world.add(m);
 })();
 
+const nav=createNav({heroes:HEROES,world:world,catOf:function(i){return catOf(i)},visited:function(i){return !!S.trees[HEROES[i].id]},onPick:function(i){pickTarget(i)}});
+$('#mini').addEventListener('click',function(){openJournal()});
 const P={x:0,z:2,y:0,face:Math.PI,phase:0,jh:0,jv:0,swim:false,ey:0,eyeS:0,wet:false,under:false,step:0,stroke:0,bub:0};
 P.y=heightAt(P.x,P.z);
 const cam={yaw:0,pitch:-0.04,fov:66};
@@ -353,6 +357,7 @@ function fadeTo(fn){
   setTimeout(function(){fn();f.style.opacity=0},window.matchMedia('(prefers-reduced-motion:reduce)').matches?0:380);
 }
 function enterDissect(i){
+  if(nav.target===i)nav.setTarget(-1);
   fadeTo(function(){
     curHero=i;const H=HEROES[i];
     useSubject(H.kind?H.id:'tree');
@@ -381,20 +386,28 @@ function exitDissect(){
 function openModal(html){$('#sheet').innerHTML=html;$('#modal').classList.add('on');keys={};joy.x=0;joy.y=0}
 function closeModal(){$('#modal').classList.remove('on')}
 function modalOpen(){return $('#modal').classList.contains('on')}
+function catOf(i){if(i<TREES.length)return 'pohon';const a=ALL[i-TREES.length];return a.fish?'ikan':a.spec?'hewan':a.geo?'bumi':'tumbuhan'}
 function openJournal(){
-  const nl=foundCount(),nt=treeCount();
+  const nl=foundCount(),nv=HEROES.filter(function(H){return S.trees[H.id]}).length;
+  const groups=CATS.map(function(c){
+    const items=HEROES.map(function(H,i){return {H:H,i:i}}).filter(function(q){return catOf(q.i)===c.id});
+    const done=items.filter(function(q){return S.trees[q.H.id]}).length;
+    const cards=items.map(function(q){const H=q.H,v=S.trees[H.id],d=Math.round(Math.hypot(P.x-H.x,P.z-H.z));
+      return '<div class="jc'+(v?'':' todo')+'"><b><i style="background:'+c.col+'"></i>'+H.name+(v?CHECK:'')+'</b><em>'+H.sci+'</em>'+(v?'<p>'+H.fact+'</p>':'<p>Belum dibedah.</p>')+'<button class="go" type="button" data-go="'+q.i+'">Arahkan · '+d+' m</button></div>'}).join('');
+    return '<h3><i class="dot" style="background:'+c.col+'"></i>'+c.name+' <small>'+done+'/'+items.length+'</small></h3><div class="grid">'+cards+'</div>';
+  }).join('');
   const lay=TLAYERS.map(function(L){
     return S.found[L.id]
       ?'<div class="jc"><b><i style="background:'+L.ui+'"></i>'+L.name+'</b><em>'+L.sci+'</em><p>'+L.short+'</p></div>'
       :'<div class="jc lock"><b><i style="background:#3b4f47"></i>???</b><em>Belum ditemukan</em><p>Bedah sebuah pohon untuk menemukannya.</p></div>';
   }).join('');
-  const tr=TREES.map(function(H){
-    return S.trees[H.id]
-      ?'<div class="jc"><b>'+H.name+'</b><em>'+H.sci+'</em><p>'+H.fact+'</p></div>'
-      :'<div class="jc lock"><b>???</b><em>Belum dibedah</em><p>Cari pohon bertanda di hutan.</p></div>';
-  }).join('');
-  openModal('<div class="head"><div><h2>Jurnal</h2><p style="color:var(--muted);font-size:14px">'+nl+'/'+TLAYERS.length+' lapisan batang, '+nt+'/'+TREES.length+' pohon</p></div><button class="x" type="button" data-close aria-label="Tutup">&times;</button></div><h3>Lapisan batang</h3><div class="grid">'+lay+'</div><h3>Pohon</h3><div class="grid">'+tr+'</div>');
+  const leg=CATS.map(function(c){return '<span><i style="background:'+c.col+'"></i>'+c.name+'</span>'}).join('');
+  openModal('<div class="head"><div><h2>Jurnal dan peta</h2><p style="color:var(--muted);font-size:14px">'+nv+'/'+HEROES.length+' objek dibedah, '+nl+'/'+TLAYERS.length+' lapisan batang</p></div><button class="x" type="button" data-close aria-label="Tutup">&times;</button></div>'+
+    '<div class="mapbox"><canvas id="bigMap" width="720" height="720" aria-label="Peta Hutan Ilmu"></canvas><div class="legend">'+leg+'<span><i class="hollow"></i>Belum dibedah</span></div><p class="mhint">Ketuk titik di peta atau tombol Arahkan untuk memasang penunjuk arah.</p></div>'+groups+'<h3>Lapisan batang</h3><div class="grid">'+lay+'</div>');
+  nav.bigMap($('#bigMap'),P,cam.yaw);
+  $('#sheet').querySelectorAll('[data-go]').forEach(function(b){b.addEventListener('click',function(){pickTarget(+b.dataset.go)})});
 }
+function pickTarget(i){nav.setTarget(i);closeModal();toast('Ikuti panah dan tiang cahaya ke '+HEROES[i].name)}
 let qz=null;
 function shuffle(a,r){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a}
 function startQuiz(){
@@ -595,6 +608,7 @@ function updWorld(dt){
     if(walk(nx,P.z))P.x=nx;
     if(walk(P.x,nz))P.z=nz;
     collide(P);
+    {const B=nav.bounds,m=8,ox=P.x,oz=P.z;P.x=clamp(P.x,B.x+m,B.x+B.s-m);P.z=clamp(P.z,B.z+m,B.z+B.s-m);if((ox!==P.x||oz!==P.z)&&T-edgeT>6){edgeT=T;toast('Batas Hutan Ilmu. Buka Jurnal untuk melihat peta.')}}
     P.phase+=speedNow*dt*1.25;
   }
   const wy=waterAt(P.x,P.z);splash.setLevel(wy);
@@ -658,6 +672,8 @@ function updWorld(dt){
   FI.forEach(function(a){const f=a.G.fish[0].p,H=HEROES[a.hi],o=heroObjs[a.hi];H.x=f.x;H.z=f.z;o.y=f.y;a.hit.position.copy(f)});
   const canFish=P.swim||P.under;
   let bestD=1e9,bestI=-1;
+  /* label hanya untuk 6 objek terdekat supaya layar tidak penuh */
+  const near=new Set(HEROES.map(function(H,i){return [Math.hypot(P.x-H.x,P.z-H.z),i]}).filter(function(q){return !(HEROES[q[1]].needSwim&&!canFish)}).sort(function(a,b){return a[0]-b[0]}).slice(0,6).map(function(q){return q[1]}));
   heroObjs.forEach(function(o,i){
     const H=HEROES[i];
     o.mk.rotation.y+=dt*1.6;o.mk.position.y=o.y+H.top+(H.mkOff!=null?H.mkOff:2.2)+Math.sin(T*2+i)*(H.kind==='animal'?0.06:0.3);
@@ -666,11 +682,11 @@ function updWorld(dt){
     if(H.needSwim&&!canFish){tags[i].style.display='none';return}
     if(d<bestD&&d<(H.reach||9)){bestD=d;bestI=i}
     tv.set(H.x,o.y+H.top*0.6,H.z).project(wcam);
-    if(tv.z<1&&d<(H.needSwim?14:60)&&d>(H.tagNear||11)){
+    if(tv.z<1&&(near.has(i)||i===nav.target)&&d<(H.needSwim?14:50)&&d>(H.tagNear||11)){
       const w=window.innerWidth,h=window.innerHeight;
       tg.style.display='block';
       tg.style.transform='translate('+((tv.x*0.5+0.5)*w)+'px,'+((-tv.y*0.5+0.5)*h)+'px) translate(-50%,-100%)';
-      tg.className='tag'+(S.trees[H.id]?' done':'');
+      tg.className='tag'+(S.trees[H.id]?' done':'')+(i===nav.target?' tgt':'');tg.style.opacity=i===nav.target?1:clamp(1.5-d/40,0.45,1);
       tg.innerHTML=H.name+'<small>'+Math.round(d)+' m</small>';
     }else tg.style.display='none';
   });
@@ -713,16 +729,16 @@ sky.update(tDay,T,0.016,{x:P.x,y:P.y+1.6,z:P.z});setClock();
 $('#loading').classList.add('done');
 setTimeout(function(){$('#loading').style.display='none'},700);
 
-if(DEBUG)window.__hi={enter:enterDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},look:function(i,d){const H=HEROES[i];d=d||11;const L=Math.hypot(H.x,H.z-2)||1;P.x=H.x+(0-H.x)/L*d;P.z=H.z+(2-H.z)/L*d;P.y=heightAt(P.x,P.z);cam.yaw=Math.atan2(P.x-H.x,P.z-H.z);cam.pitch=0.22},getMode:function(){return mode},ds:function(){return dState},fishW:fishW};
+if(DEBUG)window.__hi={enter:enterDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},look:function(i,d){const H=HEROES[i];d=d||11;const L=Math.hypot(H.x,H.z-2)||1;P.x=H.x+(0-H.x)/L*d;P.z=H.z+(2-H.z)/L*d;P.y=heightAt(P.x,P.z);cam.yaw=Math.atan2(P.x-H.x,P.z-H.z);cam.pitch=0.22},getMode:function(){return mode},nav:nav,ds:function(){return dState},fishW:fishW};
 
-let last=performance.now(),paused=false;
+let last=performance.now(),paused=false,edgeT=-99;
 function step(dt){
   T+=dt;
   if(mode==='world'){
     tDay=(tDay+dt/240)%1;
     updWorld(dt);
     sky.update(tDay,T,dt,{x:P.x,y:P.y+1.6,z:P.z},P.under);setClock();
-    veg.update(P,T,dt);water.update(T);if(bush)bush.update(T);river.update(T);
+    veg.update(P,T,dt);water.update(T);if(bush)bush.update(T);river.update(T);nav.update(dt,P,cam.yaw,T);
     {const rd=riverInfo(P.x,P.z).d;audio.update(dt,{day:sky.day,world:true,under:P.under,river:Math.pow(clamp(1-rd/28,0,1),2)})}
     fxW.render(dt);
   }else{
@@ -750,7 +766,7 @@ function perfWatch(dt){
   if(perfAcc>=4){autoDone=true;if(perfAcc/perfN>0.034){applyQuality('hemat');toast('Grafik diturunkan ke Hemat agar tetap lancar. Ganti lewat tombol Grafik.')}}
 }
 function frame(now){
-  const dt=Math.min(0.05,(now-last)/1000);last=now;
+  const dt=Math.max(0,Math.min(0.05,(now-last)/1000));last=now;
   if(!paused){step(dt);perfWatch(dt)}
   requestAnimationFrame(frame);
 }

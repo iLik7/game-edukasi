@@ -14,7 +14,9 @@ function h0(x, z) {
   h *= smooth(9, 26, Math.hypot(x, z));
   const dl = Math.hypot(x - LAKE.x, z - LAKE.z);
   if (dl < LAKE.r + 9) h = lerp(h, -3.3, 1 - smooth(LAKE.r * 0.3, LAKE.r + 9, dl));
-  return h;
+  /* cekungan di luar danau tidak boleh di bawah muka air (dulu jadi genangan putih) */
+  const fl = WATER + 0.35, hs = 0.5 * (h + fl + Math.sqrt((h - fl) * (h - fl) + 0.36));
+  return lerp(h, hs, smooth(LAKE.r + 4, LAKE.r + 12, dl));
 }
 /* SUNGAI: polyline dari perbukitan barat laut ke danau. Muka air dibuat tidak pernah naik ke hilir. */
 const RIV_CP = [[-64, 76], [-58, 66], [-52, 57], [-46, 49], [-41, 42], [-36.5, 36.5]];
@@ -73,6 +75,7 @@ float tBase(vec2 p){ return sin(p.x*0.045+1.3)*cos(p.y*0.038)*2.0 + sin(p.x*0.1+
 const vec3 RIV[${RIVER.length}] = vec3[${RIVER.length}](${RIVER.map((p) => `vec3(${p.x.toFixed(2)},${p.z.toFixed(2)},${p.y.toFixed(3)})`).join(',')});
 vec2 rivInfo(vec2 p){ float bd=1e9, by=0.; for(int i=0;i<${RIVER.length - 1};i++){ vec2 a=RIV[i].xy, ab=RIV[i+1].xy-a; float t=clamp(dot(p-a,ab)/dot(ab,ab),0.,1.); float d=length(p-a-ab*t); if(d<bd){ bd=d; by=mix(RIV[i].z,RIV[i+1].z,t);} } return vec2(bd,by); }
 float tHeight(vec2 p){ float h=tBase(p)*tS(9.,26.,length(p)); float dl=length(p-vec2(${LAKE.x}.,${LAKE.z}.)); if(dl<${LAKE.r + 9}.) h=mix(h,-3.3,1.-tS(${LAKE.r * 0.3},${LAKE.r + 9}.,dl));
+  float fl=${WATER.toFixed(2)}+0.35; float hs=0.5*(h+fl+sqrt((h-fl)*(h-fl)+0.36)); h=mix(h,hs,tS(${LAKE.r + 4}.,${LAKE.r + 12}.,dl));
   vec2 rv=rivInfo(p); if(rv.x<3.4){ float bed=rv.y-0.6*max(0.,1.-pow(rv.x/2.0,2.)); h=mix(min(h,bed),h,tS(1.9,3.4,rv.x)); } return h; }
 uniform vec4 uPath[8]; uniform vec3 uPathP[8]; uniform int uPathN;
 float tPath(vec2 p){

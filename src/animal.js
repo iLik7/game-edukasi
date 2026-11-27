@@ -124,7 +124,7 @@ export function buildWorldAnimal(scene, env, spec, home, seed = 404, bounds = nu
       timer -= dt;
       if (dp < 3 && !W.graze && !W.fly && !W.sideways) { const want = Math.atan2(-dzp, dxp); let d = want - an.yaw; d = Math.atan2(Math.sin(d), Math.cos(d)); an.yaw += d * Math.min(1, dt * 3); }
       if (timer <= 0 && (dp > W.keep || W.fly)) {
-        for (let k = 0; k < 10; k++) { const a = r() * TAU, rr = 1.5 + r() * W.radius, nx = home.x + Math.cos(a) * rr, nz = home.z + Math.sin(a) * rr; if (heightAt(nx, nz) > WATER + 0.5 && (!bounds || Math.hypot(nx - bounds.x, nz - bounds.z) < bounds.r - 1.6)) { tx = nx; tz = nz; st = 'walk'; break; } }
+        for (let k = 0; k < 10; k++) { const a = r() * TAU, rr = 1.5 + r() * W.radius, nx = home.x + Math.cos(a) * rr, nz = home.z + Math.sin(a) * rr; if (heightAt(nx, nz) > WATER + 0.5 && !(env.blocked && !W.fly && [0.25, 0.5, 0.75, 1].some((t) => env.blocked(an.x + (nx - an.x) * t, an.z + (nz - an.z) * t))) && (!bounds || Math.hypot(nx - bounds.x, nz - bounds.z) < bounds.r - 1.6)) { tx = nx; tz = nz; st = 'walk'; break; } }
         timer = 3 + r() * 6;
       }
     } else {

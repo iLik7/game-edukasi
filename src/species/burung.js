@@ -42,9 +42,9 @@ function wingGeo(s) {
 function wp(s, x, z) { const P = SH_P(s), a = -s * WR, zz = s * z; return [P[0] + x, P[1] - zz * Math.sin(a), P[2] + zz * Math.cos(a)]; }
 
 export default {
-  id: 'burung', dist: [9, 17], groundY: -1.22, worldScale: 0.08, hitR: 0.35, hitY: 0.15, muscleShrink: 0.86,
+  id: 'burung', dist: [9, 17], groundY: -1.22, worldScale: 0.1, hitR: 0.35, hitY: 0.15, muscleShrink: 0.86,
   pivots: { head: HEAD_P, tail: TAIL_P, legs: LEGS },
-  walk: { speed: 3.2, step: 6, swing: 0, radius: 7, keep: 1.0, fly: 2.4, perch: true, fold: 1.45, wingRest: 1.25, flapF: 22, graze: 0.5, tailA: 0.08, tailF: 3 },
+  walk: { speed: 3.2, step: 6, swing: 0, radius: 7, keep: 1.0, fly: 1.7, perch: true, fold: 1.45, wingRest: 1.25, flapF: 22, graze: 0.5, tailA: 0.08, tailF: 3 },
   wingRest: WR, camTarget: [0, 0.1, 0], camYaw: 0.25, bg: ['#3a4a52', '#11181c'], pedR: 3.2, dotSize: 0.08,
   vitals: (a) => ({ bpm: Math.round(lerp(400, 900, a)), rr: Math.round(lerp(50, 140, a)) }),
   capText: (s) => 'Perkiraan kasar untuk burung kecil: jantung ' + Math.round(lerp(400, 900, s)) + ' detak per menit, napas ' + Math.round(lerp(50, 140, s)) + ' kali per menit. ' + (s > 0.6 ? 'Saat terbang, otot dada bekerja keras sehingga butuh oksigen sangat banyak.' : 'Saat hinggap, detak jantung jauh lebih lambat.') + ' Titik biru: udara mengalir satu arah lewat kantong udara dan paru-paru.',
