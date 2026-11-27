@@ -642,7 +642,7 @@ function updWorld(dt){
     if(P.swim)speedNow=(run?3.6:2.3)*mag;
     else{speedNow=(run?8.2:4.6)*mag;if(dep0>0)speedNow*=1-0.55*clamp(dep0/1.3,0,1)}  /* air memperlambat langkah */
     const nx=P.x+dx*speedNow*dt,nz=P.z+dz*speedNow*dt;
-    const walk=function(x,z){return Math.hypot(x,z)<112};
+    const walk=function(x,z){return Math.hypot(x,z)<coastR(x,z)+90};
     if(walk(nx,P.z))P.x=nx;
     if(walk(P.x,nz))P.z=nz;
     collide(P);
