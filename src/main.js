@@ -120,6 +120,10 @@ renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1;
 renderer.shadowMap.enabled=true;
 renderer.shadowMap.type=THREE.PCFShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
+/* layar tegak (HP): FOV vertikal dilebarkan supaya sudut pandang mendatar minimal ~50 derajat, tidak seperti mengintip lubang kunci */
+function fovFor(f){const a=wcam.aspect||1,minH=50*Math.PI/180,need=2*Math.atan(Math.tan(minH/2)/a)*180/Math.PI;return Math.min(Math.max(f,need),84)}
+/* tata letak HUD di layar sempit: tombol atas & peta mini ditaruh tepat di bawah kartu misi */
+function layoutHud(){const tr=$('#topRight'),mi=$('#mini');if(!tr||!mi)return;if(window.innerWidth>760){tr.style.top='';mi.style.top='';return}const pb=$('#profile').getBoundingClientRect().bottom;tr.style.top=(pb+8)+'px';mi.style.top=(pb+8+tr.getBoundingClientRect().height+10)+'px'}
 let dynRes=1;/* resolusi dinamis: turun otomatis kalau frame berat */
 const pixelRatio=function(){const d=window.devicePixelRatio||1;return (quality==='tinggi'?Math.min(d,2):Math.min(d,1.25))*dynRes};
 function loadProgress(f,t){$('#loadBar').style.width=Math.round(f*100)+'%';if(t)$('#loadTxt').textContent=t}
@@ -297,6 +301,7 @@ function wxRender(){document.querySelectorAll('#wxSky button').forEach(function(
 function setSky(w,instant){wxSky=WXS[w]?w:'cerah';sky.weather.cloud=WXS[wxSky].cloud;sky.weather.rain=WXS[wxSky].rain;if(instant){sky.wx.cloud=sky.weather.cloud;sky.wx.rain=sky.weather.rain}wxRender();wxSave()}
 function wxOpen(v){const p=$('#wx'),c=$('#clock');if(v===undefined)v=p.hidden;p.hidden=!v;c.setAttribute('aria-expanded',v?'true':'false');if(v){const r=c.getBoundingClientRect();p.style.top=(r.bottom+8)+'px'}}
 $('#clock').addEventListener('click',function(e){e.stopPropagation();wxOpen()});
+try{new ResizeObserver(function(){layoutHud()}).observe($('#profile'))}catch(e){}
 $('#wx').addEventListener('click',function(e){e.stopPropagation();const t=e.target.closest('button');if(!t)return;
   if(t.dataset.t){tGoal=+t.dataset.t;audio.whoosh(false)}else if(t.dataset.w){setSky(t.dataset.w)}else if(t.id==='wxPause'){wxPaused=!wxPaused;wxRender();wxSave()}});
 try{const o=JSON.parse(localStorage.getItem('hi-wx')||'null');if(o){wxPaused=!!o.p;setSky(o.w,true)}else wxRender()}catch(e){wxRender()}
@@ -440,7 +445,7 @@ function camFxApply(dt){
   const close=camFx.i<TREES.length?2.2:clamp(H.top*0.9+1.2,1.6,4),to=tp.clone().add(away.normalize().multiplyScalar(close));
   wcam.position.lerpVectors(from,to,kk*0.92);
   const q0=wcam.quaternion.clone(),m=new THREE.Matrix4().lookAt(wcam.position,tp,new THREE.Vector3(0,1,0)),q1=new THREE.Quaternion().setFromRotationMatrix(m);
-  wcam.quaternion.copy(q0).slerp(q1,kk);wcam.fov=cam.fov*(1-0.25*kk);wcam.updateProjectionMatrix();
+  wcam.quaternion.copy(q0).slerp(q1,kk);wcam.fov=fovFor(cam.fov)*(1-0.25*kk);wcam.updateProjectionMatrix();
   $('#fade').style.opacity=camFx.dir>0?smooth(0.7,1,camFx.t/camFx.dur):1-smooth(0,0.35,camFx.t/camFx.dur);
   if(camFx.t>=camFx.dur){const f=camFx.done;camFx=null;if(f)f()}
 }
@@ -751,7 +756,7 @@ function updWorld(dt){
   splash.update(dt,T);
   wcam.rotation.set(cam.pitch,cam.yaw,0);
   zoomC+=(zoomT-zoomC)*Math.min(1,dt*8);const tf=(66+(speedNow>6?5:0))*zoomC;cam.fov+=(tf-cam.fov)*Math.min(1,dt*5);
-  if(Math.abs(wcam.fov-cam.fov)>0.02||camFx){wcam.fov=cam.fov;wcam.updateProjectionMatrix()}
+  {const vf=fovFor(cam.fov);if(Math.abs(wcam.fov-vf)>0.02||camFx){wcam.fov=vf;wcam.updateProjectionMatrix()}}
   camFxApply(dt);
 
   /* markers, tags, prompt */
@@ -813,7 +818,7 @@ function resize(){
   const w=window.innerWidth,h=window.innerHeight,pr=pixelRatio();
   renderer.setPixelRatio(pr);renderer.setSize(w,h,false);
   fxW.setSize(w,h,pr);fxD.setSize(w,h,pr);ALL.forEach(function(a){if(a.fx)a.fx.setSize(w,h,pr)});
-  wcam.aspect=w/h;wcam.updateProjectionMatrix();
+  wcam.aspect=w/h;wcam.fov=fovFor(cam.fov);wcam.updateProjectionMatrix();layoutHud();
   dcam.aspect=w/h;
   /* keep the trunk clear of the side panel on wide screens */
   if(w>760){dcam.setViewOffset(w,h,Math.min(120,w*0.09),0,w,h)}else if(isAnimal()){dcam.setViewOffset(w,h,0,Math.round(h*0.13),w,h)}else{dcam.clearViewOffset()}

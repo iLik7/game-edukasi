@@ -60,7 +60,9 @@ body.dissect .world-ui,body.dissect #tags{display:none!important}
 #act .lbl b{font:800 16px var(--f-display);letter-spacing:.02em;text-transform:uppercase}
 #act .lbl small{font:600 12px var(--f-body);color:rgba(255,255,255,.75)}
 .touch #act .key{font-size:0}
-.touch #act .key::before{content:"";width:18px;height:18px;border-radius:50%;background:#111}
+.touch #act .key{position:relative}
+.touch #act .key::before{content:"";position:absolute;left:10px;top:10px;width:13px;height:13px;border-radius:50%;border:3px solid #111}
+.touch #act .key::after{content:"";position:absolute;left:24px;top:25px;width:4px;height:9px;border-radius:2px;background:#111;transform:rotate(-45deg)}
 @keyframes actp{0%{box-shadow:0 0 0 0 rgba(255,255,255,.65)}100%{box-shadow:0 0 0 14px rgba(255,255,255,0)}}
 #jump{right:max(22px,env(safe-area-inset-right,0px));bottom:calc(env(safe-area-inset-bottom,0px) + 40px);width:68px;height:68px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.12);color:#fff;display:none;place-items:center;touch-action:manipulation}
 #jump svg{width:30px;height:30px}
@@ -157,7 +159,17 @@ body.dissect #zone{display:none}
 .jc.todo{opacity:.8}
 .jc .go{margin-top:8px;padding:6px 12px;border-radius:999px;border:1px solid rgba(255,214,110,.5);background:rgba(255,214,110,.1);color:#ffe4a0;font-weight:700;font-size:13px;cursor:pointer}
 @media (max-width:760px){
-  #mini{width:104px;height:104px;bottom:auto;top:calc(env(safe-area-inset-top,0px) + 168px)}
+  #mini{width:96px;height:96px;bottom:auto;top:calc(env(safe-area-inset-top,0px) + 168px)}
+  /* tombol atas jadi ikon saja dalam satu baris */
+  #topRight{flex-wrap:nowrap;gap:6px}
+  #topRight .btn{font-size:0;gap:0;padding:0;width:40px;justify-content:center}
+  #topRight .btn span{display:none}
+  #topRight .btn svg{width:19px;height:19px}
+  #clock{padding:0 12px;font-size:14px}
+  #profile{padding:10px 12px}
+  #lvl{font-size:16px}
+  #mission{font-size:12.5px}
+  #near{font-size:11.5px;margin-top:4px}
   #wp{top:auto;left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 168px)}
   #topRight{max-width:calc(100vw - 24px);top:calc(env(safe-area-inset-top,0px) + 118px)}
   #profile{width:min(300px,calc(100vw - 24px))}
