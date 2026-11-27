@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { TAU, $, clamp, lerp, smooth, rng, stepAngle } from './util.js';
 import OBJ from './objects/pohon.js';
-import { heightAt, WATER, LAKE, buildTerrain, buildWater, setPaths, buildRiver, riverInfo, waterAt } from './terrain.js';
+import { heightAt, WATER, LAKE, SIZE, buildTerrain, buildWater, setPaths, buildRiver, riverInfo, waterAt } from './terrain.js';
 import { createSky } from './sky.js';
 import { buildVegetation } from './vegetation.js';
 import { createFX } from './fx.js';
@@ -608,7 +608,7 @@ function updWorld(dt){
     if(walk(nx,P.z))P.x=nx;
     if(walk(P.x,nz))P.z=nz;
     collide(P);
-    {const B=nav.bounds,m=8,ox=P.x,oz=P.z;P.x=clamp(P.x,B.x+m,B.x+B.s-m);P.z=clamp(P.z,B.z+m,B.z+B.s-m);if((ox!==P.x||oz!==P.z)&&T-edgeT>6){edgeT=T;toast('Batas Hutan Ilmu. Buka Jurnal untuk melihat peta.')}}
+    {const m=SIZE/2-14;P.x=clamp(P.x,-m,m);P.z=clamp(P.z,-m,m)}
     P.phase+=speedNow*dt*1.25;
   }
   const wy=waterAt(P.x,P.z);splash.setLevel(wy);
