@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { TAU, clamp, lerp, smooth, rng } from './util.js';
+import { outerW, outerH, biomeAt, GLSL_WORLD, ISLAND_R } from './world.js';
 import grassUrl from '../node_modules/@dgreenheck/ez-tree/src/app/public/grass.jpg';
 import dirtUrl from '../node_modules/@dgreenheck/ez-tree/src/app/public/dirt_color.jpg';
 import dirtNUrl from '../node_modules/@dgreenheck/ez-tree/src/app/public/dirt_normal.jpg';
@@ -38,6 +39,7 @@ export function riverInfo(x, z) {
 }
 export function heightAt(x, z) {
   let h = h0(x, z);
+  const wo = outerW(x, z); if (wo > 0) h = lerp(h, outerH(x, z), wo);
   const r = riverInfo(x, z);
   if (r.d < 3.4) { const bed = r.y - 0.6 * Math.max(0, 1 - (r.d / 2.0) ** 2); h = lerp(Math.min(h, bed), h, smooth(1.9, 3.4, r.d)); }
   return h;
@@ -70,12 +72,14 @@ export const PATH_W = 1.25;
 export const terrainU = { uTime: { value: 0 } };
 
 export const GLSL_TERRAIN = /* glsl */`
+${GLSL_WORLD}
 float tS(float a,float b,float x){ float t=clamp((x-a)/(b-a),0.,1.); return t*t*(3.-2.*t); }
 float tBase(vec2 p){ return sin(p.x*0.045+1.3)*cos(p.y*0.038)*2.0 + sin(p.x*0.1+p.y*0.08)*0.5 + cos(p.x*0.02-p.y*0.03)*1.5; }
 const vec3 RIV[${RIVER.length}] = vec3[${RIVER.length}](${RIVER.map((p) => `vec3(${p.x.toFixed(2)},${p.z.toFixed(2)},${p.y.toFixed(3)})`).join(',')});
 vec2 rivInfo(vec2 p){ float bd=1e9, by=0.; for(int i=0;i<${RIVER.length - 1};i++){ vec2 a=RIV[i].xy, ab=RIV[i+1].xy-a; float t=clamp(dot(p-a,ab)/dot(ab,ab),0.,1.); float d=length(p-a-ab*t); if(d<bd){ bd=d; by=mix(RIV[i].z,RIV[i+1].z,t);} } return vec2(bd,by); }
 float tHeight(vec2 p){ float h=tBase(p)*tS(9.,26.,length(p)); float dl=length(p-vec2(${LAKE.x}.,${LAKE.z}.)); if(dl<${LAKE.r + 9}.) h=mix(h,-3.3,1.-tS(${LAKE.r * 0.3},${LAKE.r + 9}.,dl));
   float fl=${WATER.toFixed(2)}+0.35; float hs=0.5*(h+fl+sqrt((h-fl)*(h-fl)+0.36)); h=mix(h,hs,tS(${LAKE.r + 4}.,${LAKE.r + 12}.,dl));
+  float wo=wOuter(p); if(wo>0.) h=mix(h,wOuterH(p),wo);
   vec2 rv=rivInfo(p); if(rv.x<3.4){ float bed=rv.y-0.6*max(0.,1.-pow(rv.x/2.0,2.)); h=mix(min(h,bed),h,tS(1.9,3.4,rv.x)); } return h; }
 uniform vec4 uPath[8]; uniform vec3 uPathP[8]; uniform int uPathN;
 float tPath(vec2 p){
@@ -108,43 +112,80 @@ function loadTex(url, srgb, repeat) {
   return t;
 }
 
-export function buildTerrain(scene) {
-  const g = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG); g.rotateX(-Math.PI / 2);
-  const pos = g.attributes.position, n = pos.count;
-  const col = new Float32Array(n * 3), mix = new Float32Array(n * 2);
-  const c = new THREE.Color();
-  const hs = new Float32Array(n);
-  for (let i = 0; i < n; i++) { const h = heightAt(pos.getX(i), pos.getZ(i)); hs[i] = h; pos.setY(i, h); }
-  for (let i = 0; i < n; i++) {
-    const x = pos.getX(i), z = pos.getZ(i), h = hs[i];
-    const e = 0.8;
-    const sx = heightAt(x + e, z) - heightAt(x - e, z), sz = heightAt(x, z + e) - heightAt(x, z - e);
-    const slope = Math.hypot(sx, sz) / (2 * e);
-    const macro = Math.sin(x * 0.07 + 1.3) * Math.sin(z * 0.06) * 0.5 + 0.5;
-    const patch = Math.sin(x * 0.31) * Math.sin(z * 0.27 + 2.0) * 0.5 + 0.5;
-    let dirt = smooth(0.28, 0.6, slope) + smooth(0.78, 0.95, patch) * 0.45;
-    dirt = Math.max(dirt, 1 - smooth(PATH_W * 0.45, PATH_W * 1.05, pathDist(x, z)));
-    const sand = 1 - smooth(WATER + 0.1, WATER + 0.75, h);
-    mix[i * 2] = clamp(dirt, 0, 1) * (1 - sand); mix[i * 2 + 1] = sand;
-    // variasi warna makro rumput (kuning-hijau <-> hijau tua)
-    c.setRGB(0.80 + macro * 0.28, 0.9 + macro * 0.22 - patch * 0.05, 0.62 + macro * 0.14);
-    c.multiplyScalar((0.92 + hash(x, z) * 0.16) * 1.9);
-    col[i * 3] = c.r; col[i * 3 + 1] = c.g; col[i * 3 + 2] = c.b;
+/* warna dan campuran tekstur per titik: x tanah, y pasir, z salju, w batu */
+const _c = new THREE.Color();
+function groundAttr(x, z, h, slope, col, mx, k) {
+  const B = biomeAt(x, z), wo = 1 - B.hutan;
+  const macro = Math.sin(x * 0.07 + 1.3) * Math.sin(z * 0.06) * 0.5 + 0.5;
+  const patch = Math.sin(x * 0.31) * Math.sin(z * 0.27 + 2.0) * 0.5 + 0.5;
+  let dirt = smooth(0.28, 0.6, slope) + smooth(0.78, 0.95, patch) * 0.45;
+  if (wo < 0.99) dirt = Math.max(dirt, (1 - smooth(PATH_W * 0.45, PATH_W * 1.05, pathDist(x, z))) * (1 - wo));
+  let sand = 1 - smooth(WATER + 0.1, WATER + 0.75, h);
+  let snow = 0, rock = 0;
+  /* warna rumput dasar (hub) */
+  let r = 0.80 + macro * 0.28, g = 0.9 + macro * 0.22 - patch * 0.05, b = 0.62 + macro * 0.14;
+  if (wo > 0) {
+    /* hutan hujan: hijau tua lembap, banyak lumpur */
+    const hr = B.hujan; r = lerp(r, 0.55 + macro * 0.12, hr); g = lerp(g, 0.82 + macro * 0.12, hr); b = lerp(b, 0.5, hr); dirt = lerp(dirt, Math.max(dirt, patch * 0.55), hr);
+    /* peternakan: petak ladang berselang-seling */
+    const fr = B.peternakan, row = Math.sin(x * 0.11 + Math.sin(z * 0.01) * 3) > 0.35 ? 1 : 0, field = Math.sin(z * 0.045 + Math.sin(x * 0.02)) > 0 ? 1 : 0;
+    r = lerp(r, row ? 1.02 : 0.86, fr); g = lerp(g, row ? 1.0 : 1.08, fr); b = lerp(b, row ? 0.55 : 0.6, fr); dirt = lerp(dirt, field && row ? 0.55 : dirt * 0.5, fr);
+    /* gunung: rumput zaitun, batu di lereng, salju di puncak */
+    const gr = B.gunung, sn = smooth(90, 104, h + 8 * Math.sin(x * 0.05) * Math.sin(z * 0.06));
+    r = lerp(r, 0.88, gr * smooth(15, 50, h)); g = lerp(g, 0.92, gr * smooth(15, 50, h)); b = lerp(b, 0.6, gr * smooth(15, 50, h));
+    rock = gr * Math.max(smooth(0.55, 0.95, slope), smooth(62, 86, h) * 0.75); snow = gr * sn;
+    /* gurun dan pantai: pasir */
+    sand = Math.max(sand, smooth(0.35, 0.7, B.gurun), B.pantai);
   }
-  g.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  g.setAttribute('aMix', new THREE.BufferAttribute(mix, 2));
-  g.computeVertexNormals();
+  _c.setRGB(r, g, b).multiplyScalar((0.92 + hash(x, z) * 0.16) * 1.9);
+  /* di pasir/salju/batu, warna simpul netral supaya tekstur yang menentukan */
+  const neutral = Math.max(sand, snow, rock);
+  col[k * 3] = lerp(_c.r, 1, neutral); col[k * 3 + 1] = lerp(_c.g, 1, neutral); col[k * 3 + 2] = lerp(_c.b, 1, neutral);
+  snow = clamp(snow, 0, 1); rock = clamp(rock * (1 - snow), 0, 1); sand = clamp(sand * (1 - snow), 0, 1);
+  mx[k * 4] = clamp(dirt, 0, 1) * (1 - sand) * (1 - rock) * (1 - snow); mx[k * 4 + 1] = sand; mx[k * 4 + 2] = snow; mx[k * 4 + 3] = rock;
+}
+/* satu petak medan: grid + rok (skirt) di tepi agar tidak ada celah antar tingkat detail */
+export const TILE = 96;
+function tileGeometry(cx, cz, seg) {
+  const N = seg + 1, st = TILE / seg, x0 = cx - TILE / 2, z0 = cz - TILE / 2, E = N + 2;
+  const H = new Float32Array(E * E);
+  for (let j = 0; j < E; j++) for (let i = 0; i < E; i++) H[j * E + i] = heightAt(x0 + (i - 1) * st, z0 + (j - 1) * st);
+  const nv = N * N + 4 * N, pos = new Float32Array(nv * 3), nor = new Float32Array(nv * 3), uv = new Float32Array(nv * 2), col = new Float32Array(nv * 3), mx = new Float32Array(nv * 4);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const k = j * N + i, x = x0 + i * st, z = z0 + j * st, h = H[(j + 1) * E + i + 1];
+    const dx = (H[(j + 1) * E + i + 2] - H[(j + 1) * E + i]) / (2 * st), dz = (H[(j + 2) * E + i + 1] - H[j * E + i + 1]) / (2 * st);
+    pos[k * 3] = x; pos[k * 3 + 1] = h; pos[k * 3 + 2] = z;
+    const l = Math.hypot(dx, 1, dz); nor[k * 3] = -dx / l; nor[k * 3 + 1] = 1 / l; nor[k * 3 + 2] = -dz / l;
+    uv[k * 2] = x / 4.5; uv[k * 2 + 1] = -z / 4.5;
+    groundAttr(x, z, h, Math.hypot(dx, dz), col, mx, k);
+  }
+  const idx = [];
+  for (let j = 0; j < seg; j++) for (let i = 0; i < seg; i++) { const a = j * N + i, b = a + 1, c = a + N, d = c + 1; idx.push(a, c, b, b, c, d); }
+  /* rok: tiap sisi, salinan tepi yang diturunkan 3 m */
+  const edges = [[...Array(N).keys()].map((i) => i), [...Array(N).keys()].map((i) => (N - 1) * N + i), [...Array(N).keys()].map((j) => j * N), [...Array(N).keys()].map((j) => j * N + N - 1)];
+  let v = N * N;
+  edges.forEach((e, ei) => {
+    const base = v;
+    e.forEach((src) => { for (let q = 0; q < 3; q++) pos[v * 3 + q] = pos[src * 3 + q]; pos[v * 3 + 1] -= 3; for (let q = 0; q < 3; q++) { nor[v * 3 + q] = nor[src * 3 + q]; col[v * 3 + q] = col[src * 3 + q]; } for (let q = 0; q < 4; q++) mx[v * 4 + q] = mx[src * 4 + q]; uv[v * 2] = uv[src * 2]; uv[v * 2 + 1] = uv[src * 2 + 1]; v++; });
+    for (let i = 0; i < N - 1; i++) { const a = e[i], b = e[i + 1], c = base + i, d = base + i + 1; idx.push(a, b, c, b, d, c, a, c, b, b, c, d); }
+  });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(nor, 3)); g.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.setAttribute('aMix', new THREE.BufferAttribute(mx, 4)); g.setIndex(idx);
+  g.computeBoundingSphere(); g.boundingSphere.radius += 4; return g;
+}
 
-  const grass = loadTex(grassUrl, true, SIZE / 4.5);
+export function buildTerrain(scene) {
+  const grass = loadTex(grassUrl, true, 1);
   const dirt = loadTex(dirtUrl, true, 1);
-  const dirtN = loadTex(dirtNUrl, false, SIZE / 4.5);
+  const dirtN = loadTex(dirtNUrl, false, 1);
   const mat = new THREE.MeshStandardMaterial({ map: grass, normalMap: dirtN, normalScale: new THREE.Vector2(0.55, 0.55), vertexColors: true, roughness: 0.96, metalness: 0 });
   mat.onBeforeCompile = (sh) => {
     sh.uniforms.uDirt = { value: dirt }; sh.uniforms.uTime = terrainU.uTime;
-    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec2 aMix; varying vec2 vMix; varying vec3 vWPt;')
+    sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute vec4 aMix; varying vec4 vMix; varying vec3 vWPt;')
       .replace('#include <begin_vertex>', '#include <begin_vertex>\nvMix = aMix; vWPt = (modelMatrix * vec4(transformed, 1.0)).xyz;');
     sh.fragmentShader = sh.fragmentShader.replace('#include <common>', `#include <common>
-        uniform sampler2D uDirt; uniform float uTime; varying vec2 vMix; varying vec3 vWPt;
+        uniform sampler2D uDirt; uniform float uTime; varying vec4 vMix; varying vec3 vWPt;
         float caust(vec2 p, float t){
           vec2 q = p * 0.85; float c = 0.0;
           for (int i = 0; i < 3; i++) {
@@ -157,17 +198,51 @@ export function buildTerrain(scene) {
         vec4 g2 = texture2D(map, vMapUv * 0.23 + vec2(0.31, 0.67));
         diffuseColor.rgb = mix(diffuseColor.rgb, g2.rgb * 1.05, 0.38);
         vec4 dc = texture2D(uDirt, vMapUv * 0.8);
+        vec4 dc2 = texture2D(uDirt, vMapUv * 0.11 + vec2(0.4, 0.2));
         diffuseColor.rgb = mix(diffuseColor.rgb, dc.rgb * vec3(1.0, 0.86, 0.7) * 1.1, vMix.x);
-        diffuseColor.rgb = mix(diffuseColor.rgb, dc.rgb * vec3(1.55, 1.38, 1.0), vMix.y);
-        { float uw = ${WATER.toFixed(2)} - vWPt.y;            // dasar danau: lebih gelap-kehijauan + kaustik
+        float sl = dot(mix(dc.rgb, dc2.rgb, 0.4), vec3(0.33));
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.98, 0.70, 0.36) * (0.27 + sl * 0.42) * (0.92 + 0.08 * sin(vWPt.x * 1.7 + sin(vWPt.z * 0.5) * 2.5)), vMix.y);
+        float lum = dot(mix(dc.rgb, dc2.rgb, 0.5), vec3(0.33));
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.62, 0.62, 0.64) * (0.3 + lum * 0.8), vMix.w);
+        diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.9, 0.94, 1.0) * (0.58 + lum * 0.25), vMix.z);
+        { float uw = ${WATER.toFixed(2)} - vWPt.y;            // dasar air: lebih gelap-kehijauan + kaustik
           if (uw > 0.0) {
             diffuseColor.rgb *= mix(vec3(1.0), vec3(0.45, 0.68, 0.64), clamp(uw * 0.55, 0.0, 1.0));
             diffuseColor.rgb += caust(vWPt.xz * 1.6, uTime) * 0.12 * exp(-uw * 0.35) * vec3(0.75, 1.0, 0.92);
           } }`);
   };
-  const mesh = new THREE.Mesh(g, mat);
-  mesh.receiveShadow = true; scene.add(mesh);
-  return mesh;
+  /* petak dibangun di sekitar pemain; tingkat detail menurun dengan jarak */
+  const tiles = new Map(), group = new THREE.Group(); scene.add(group);
+  const R = 330, lodOf = (d) => d < 140 ? 96 : d < 240 ? 32 : 12;
+  let queue = [];
+  function want(P) {
+    const out = new Map(), ix0 = Math.floor((P.x - R) / TILE), ix1 = Math.floor((P.x + R) / TILE), iz0 = Math.floor((P.z - R) / TILE), iz1 = Math.floor((P.z + R) / TILE);
+    for (let iz = iz0; iz <= iz1; iz++) for (let ix = ix0; ix <= ix1; ix++) {
+      const cx = (ix + 0.5) * TILE, cz = (iz + 0.5) * TILE, d = Math.max(0, Math.hypot(cx - P.x, cz - P.z) - TILE * 0.7);
+      if (d > R) continue; if (Math.hypot(cx, cz) > ISLAND_R + 420) continue;
+      out.set(ix + ',' + iz, { ix, iz, cx, cz, d, seg: lodOf(d) });
+    }
+    return out;
+  }
+  function build(w) {
+    const old = tiles.get(w.ix + ',' + w.iz);
+    const m = new THREE.Mesh(tileGeometry(w.cx, w.cz, w.seg), mat); m.receiveShadow = true; m.userData.seg = w.seg; group.add(m);
+    if (old) { group.remove(old); old.geometry.dispose(); }
+    tiles.set(w.ix + ',' + w.iz, m);
+  }
+  let lastX = 1e9, lastZ = 1e9;
+  return {
+    group,
+    update(P, now) {
+      if (Math.hypot(P.x - lastX, P.z - lastZ) > 12 || now) {
+        lastX = P.x; lastZ = P.z; const W = want(P);
+        for (const [k, m] of tiles) if (!W.has(k)) { group.remove(m); m.geometry.dispose(); tiles.delete(k); }
+        queue = [...W.values()].filter((w) => { const m = tiles.get(w.ix + ',' + w.iz); return !m || m.userData.seg !== w.seg; }).sort((a, b) => a.d - b.d);
+      }
+      const t0 = performance.now();
+      while (queue.length && (now || performance.now() - t0 < 6)) build(queue.shift());
+    },
+  };
 }
 
 /* normal map riak air (prosedural, bisa diulang) */
@@ -233,11 +308,11 @@ export function buildWater(scene) {
           vec3 nW = normalize(vec3(wn.x * 0.35 * calm, 1.0, wn.y * 0.35 * calm));
           normal = normalize((viewMatrix * vec4(nW * (gl_FrontFacing ? 1.0 : -1.0), 0.0)).xyz); }`);
   };
-  const m = new THREE.Mesh(new THREE.PlaneGeometry(SIZE, SIZE), mat);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1400, 1400), mat);
   m.rotation.x = -Math.PI / 2; m.position.y = WATER; m.userData.noAO = true; scene.add(m);
   return {
     mesh: m,
-    update(T) { uni.uTime.value = T; terrainU.uTime.value = T; },
+    update(T, P) { uni.uTime.value = T; terrainU.uTime.value = T; if (P) m.position.set(Math.round(P.x / 20) * 20, WATER, Math.round(P.z / 20) * 20); },
     ripple(x, z, s) { rip[ri].set(x, z, uni.uTime.value, s); ri = (ri + 1) % rip.length; },
   };
 }

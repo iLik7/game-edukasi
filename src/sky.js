@@ -102,6 +102,8 @@ export function createSky(scene, renderer) {
   let envTimer = 99, lastElev = 9, isNight = false;
   const api = {
     sun, sunDir, day: 1, elev: 1, get isNight() { return isNight; },
+    /* suasana bioma: kepadatan kabut dan rona cakrawala (diatur dari main) */
+    fogD: 0.0155, tint: new THREE.Color(1, 1, 1),
     envEvery: 2.5,
     setShadowSize(px) {
       if (sun.shadow.mapSize.x === px) return;
@@ -126,13 +128,13 @@ export function createSky(scene, renderer) {
       UE.uBelow.value.setRGB(0.05, 0.07, 0.03).multiplyScalar(0.15 + 0.85 * day);
       U.uBelow.value.copy(U.uHorizon.value);
 
-      scene.fog.color.copy(U.uHorizon.value);
+      scene.fog.color.copy(U.uHorizon.value).multiply(api.tint);
       /* bawah air: kabut pekat hijau-biru, langit disembunyikan */
       if (under) {
         scene.fog.color.setRGB(0.012, 0.06, 0.065).multiplyScalar(0.25 + 0.75 * day);
         scene.fog.density = 0.11; dome.visible = false; stars.visible = false; moon.visible = false;
         scene.background = scene.fog.color;
-      } else { scene.fog.density = 0.0155; dome.visible = true; stars.visible = true; scene.background = null; }
+      } else { scene.fog.density = api.fogD; dome.visible = true; stars.visible = true; scene.background = null; }
       scene.environmentIntensity = 0.42 + 0.85 * day;
 
       const cx = focus.x, cy = focus.y, cz = focus.z;

@@ -138,7 +138,15 @@ body.dissect .world-ui,body.dissect #tags{display:none!important}
 #wp b{font-family:var(--f-display);font-size:15px;margin-right:4px}
 #wp .x{color:var(--muted);font-size:18px;margin-left:2px}
 .tag.tgt{border-color:rgba(255,214,110,.8)!important;color:#ffe4a0}
+#zone{position:fixed;left:50%;top:22%;transform:translateX(-50%);z-index:6;pointer-events:none;text-align:center;font:800 clamp(26px,5vw,44px)/1.1 var(--f-display);color:#fff;text-shadow:0 2px 18px rgba(0,0,0,.55);opacity:0;white-space:nowrap}
+#zone small{display:block;font:700 13px/1 system-ui;letter-spacing:.18em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+#zone.on{animation:zone 4s ease forwards}
+@keyframes zone{0%{opacity:0;transform:translate(-50%,8px)}12%{opacity:1;transform:translate(-50%,0)}75%{opacity:1}100%{opacity:0}}
+body.dissect #zone{display:none}
 .mapbox{margin:4px 0 8px}
+.mtabs{display:flex;gap:6px;justify-content:center;margin-bottom:10px}
+.mtabs button{padding:7px 14px;border-radius:999px;border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--muted);font-weight:700;font-size:13px;cursor:pointer}
+.mtabs button.on{background:rgba(255,214,110,.15);border-color:rgba(255,214,110,.6);color:#ffe4a0}
 .mapbox canvas{width:min(100%,560px);aspect-ratio:1;border-radius:14px;display:block;margin:0 auto;cursor:crosshair;border:1px solid var(--line)}
 .legend{display:flex;flex-wrap:wrap;gap:6px 14px;justify-content:center;margin-top:10px;font-size:13px;color:var(--muted)}
 .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}

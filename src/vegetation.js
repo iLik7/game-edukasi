@@ -4,6 +4,7 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js';
 import { Tree, TreePreset } from '../node_modules/@dgreenheck/ez-tree/src/lib/index.js';
 import { TAU, clamp, smooth, rng, yieldFrame } from './util.js';
+import { biomeAt, ISLAND_R } from './world.js';
 import { heightAt, hash, WATER, SIZE, GLSL_TERRAIN, pathDist, pathUniforms, PATH_W, LAKE, START, riverInfo } from './terrain.js';
 
 /* Gaya render tiap pohon bertanda (data sains tetap di src/objects/pohon.js) */
@@ -139,6 +140,9 @@ function buildGrass(scene, maxCount) {
         float gh = tHeight(wp);
         float fade = 1.0 - smoothstep(uR * 0.5, uR, length(rel));
         float ok = step(uWater + 0.55, gh) * smoothstep(uPathW * 0.85, uPathW * 1.6, tPath(wp)) * step(9.0, length(wp) + 14.0) * smoothstep(2.3, 3.0, rivInfo(wp).x);
+        { float wo2 = wOuter(wp); if (wo2 > 0.0) { vec4 S = wSect(wp); float dc = length(wp) - wCoast(wp);
+          float gk = 1.0 - wo2 * wS(0.3, 0.6, S.z); gk *= 1.0 - wS(-105.0, -75.0, dc); gk *= 1.0 - wS(60.0, 85.0, gh) * wo2;
+          ok *= step(aOff.z * 0.999, gk); } }
         float clump = 0.5 + 0.5 * sin(wp.x * 0.11) * sin(wp.y * 0.13 + 1.0);
         float sc = aOff.w * fade * ok * mix(0.6, 1.2, clump);
         float ang = aOff.z * 6.2831;
@@ -255,6 +259,26 @@ export async function buildVegetation({ scene, heroes, clear = [], addObs, progr
     groups[vi].push(s);
     addObs(s.x, s.z, Math.max(0.28, Math.min(0.9, variants[vi].trunkR * s.s * 0.6)));
   }
+  /* pohon bioma luar: hutan hujan rapat (pohon daun lebar), pinus di lereng gunung, beberapa pohon peneduh di peternakan */
+  {
+    const ro = rng(321), stp = 6.5;
+    for (let gz = -ISLAND_R; gz < ISLAND_R; gz += stp) for (let gx = -ISLAND_R; gx < ISLAND_R; gx += stp) {
+      const x = gx + (ro() - 0.5) * stp * 0.9, z = gz + (ro() - 0.5) * stp * 0.9, u = ro();
+      if (Math.hypot(x, z) < 125) continue;
+      const B = biomeAt(x, z); if (B.hutan > 0.5 || B.laut > 0.05 || B.pantai > 0.3) continue;
+      const h = heightAt(x, z); if (h < WATER + 1.2) continue;
+      const pRain = B.hujan * 0.42, pPine = B.gunung * 0.3 * (1 - smooth(70, 88, h)), pFarm = B.peternakan * 0.012;
+      let vi = -1;
+      if (u < pRain) vi = ro() < 0.6 ? (ro() < 0.5 ? 0 : 1) : 2;
+      else if (u < pRain + pPine) vi = ro() < 0.65 ? 3 : 4;
+      else if (u < pRain + pPine + pFarm) vi = 0;
+      if (vi < 0) continue;
+      if (riverInfo(x, z).d < 4) continue;
+      const big = vi < 3 && B.hujan > 0.5 ? 1.25 : 1;
+      groups[vi].push({ x, y: h, z, s: (0.8 + ro() * 0.5) * big, r: ro(), c: ro(), n: 0 });
+      addObs(x, z, Math.max(0.28, Math.min(0.9, variants[vi].trunkR * 0.6)));
+    }
+  }
   variants.forEach((v, i) => { if (groups[i].length) { chunkInstances(scene, v, groups[i], chunks, chunkSize, 0); chunkInstances(scene, lites[i], groups[i], chunks, chunkSize, 1); } });
   await step('Menanam semak…', 0.4);
 
@@ -268,6 +292,7 @@ export async function buildVegetation({ scene, heroes, clear = [], addObs, progr
     if (riverInfo(x, z).d < 3.6) continue;
     bs[i % 3].push({ x, y: h, z, s: 0.7 + rb() * 0.7, r: rb(), c: rb() }); i++;
   }
+  { const ro = rng(654); for (let i = 0; i < 2600; i++) { const x = (ro() * 2 - 1) * ISLAND_R, z = (ro() * 2 - 1) * ISLAND_R; if (Math.hypot(x, z) < 125) continue; const B = biomeAt(x, z); if (ro() > B.hujan * 1.2 + B.gunung * 0.15) continue; const h = heightAt(x, z); if (h < WATER + 1 || h > 80) continue; bs[i % 3].push({ x, y: h, z, s: 0.9 + ro() * 0.9, r: ro(), c: ro() }); } }
   bushVars.forEach((v, i) => chunkInstances(scene, v, bs[i], chunks, chunkSize, 0));
   await step('Menanam rumput…', 0.5);
 

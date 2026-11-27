@@ -33,6 +33,7 @@ import BUNGA from './objects/bunga.js';
 import { buildHibiscusBush, buildFlowerDissect } from './flower.js';
 import { createAudio } from './audio.js';
 import { createNav, CATS } from './nav.js';
+import { biomeAt, dominant, coastR } from './world.js';
 import { createSplash } from './splash.js';
 
 (async function(){
@@ -113,7 +114,7 @@ setPaths(TREES.concat(MO.map(function(a){return a.data.specimen})));
 const world=new THREE.Scene();
 const wcam=new THREE.PerspectiveCamera(66,1,0.15,1200);wcam.rotation.order='YXZ';
 const sky=createSky(world,renderer);
-buildTerrain(world);
+const terrain=buildTerrain(world);terrain.update({x:0,z:2},true);
 const water=buildWater(world);
 const splash=createSplash(world,WATER);
 const river=buildRiver(world);
@@ -225,7 +226,7 @@ ECO.forEach(function(a){
   const m=new THREE.Mesh(mergeGeo(posts.concat(rails)),wood);m.castShadow=true;m.receiveShadow=true;world.add(m);
 })();
 
-const nav=createNav({heroes:HEROES,world:world,catOf:function(i){return catOf(i)},visited:function(i){return !!S.trees[HEROES[i].id]},onPick:function(i){pickTarget(i)}});
+const nav=createNav({heroes:HEROES,world:world,catOf:function(i){return catOf(i)},visited:function(i){return !!S.trees[HEROES[i].id]},onPick:function(i){pickTarget(i)},onTravel:function(b){travel(b)}});
 $('#mini').addEventListener('click',function(){openJournal()});
 const P={x:0,z:2,y:0,face:Math.PI,phase:0,jh:0,jv:0,swim:false,ey:0,eyeS:0,wet:false,under:false,step:0,stroke:0,bub:0};
 P.y=heightAt(P.x,P.z);
@@ -427,10 +428,13 @@ function openJournal(){
   }).join('');
   const leg=CATS.map(function(c){return '<span><i style="background:'+c.col+'"></i>'+c.name+'</span>'}).join('');
   openModal('<div class="head"><div><h2>Jurnal dan peta</h2><p style="color:var(--muted);font-size:14px">'+nv+'/'+HEROES.length+' objek dibedah, '+nl+'/'+TLAYERS.length+' lapisan batang</p></div><button class="x" type="button" data-close aria-label="Tutup">&times;</button></div>'+
-    '<div class="mapbox"><canvas id="bigMap" width="720" height="720" aria-label="Peta Hutan Ilmu"></canvas><div class="legend">'+leg+'<span><i class="hollow"></i>Belum dibedah</span></div><p class="mhint">Ketuk titik di peta atau tombol Arahkan untuk memasang penunjuk arah.</p></div>'+groups+'<h3>Lapisan batang</h3><div class="grid">'+lay+'</div>');
-  nav.bigMap($('#bigMap'),P,cam.yaw);
+    '<div class="mapbox"><div class="mtabs"><button type="button" class="on" data-mv="hub">Hutan Ilmu</button><button type="button" data-mv="pulau">Seluruh pulau</button></div><canvas id="bigMap" width="720" height="720" aria-label="Peta Hutan Ilmu"></canvas><div class="legend">'+leg+'<span><i class="hollow"></i>Belum dibedah</span></div><p class="mhint">Ketuk titik di peta atau tombol Arahkan untuk memasang penunjuk arah.</p></div>'+groups+'<h3>Lapisan batang</h3><div class="grid">'+lay+'</div>');
+  nav.bigMap($('#bigMap'),P,cam.yaw,'hub');
+  $('#sheet').querySelectorAll('[data-mv]').forEach(function(b){b.addEventListener('click',function(){$('#sheet').querySelectorAll('[data-mv]').forEach(function(x){x.classList.toggle('on',x===b)});nav.bigMap($('#bigMap'),P,cam.yaw,b.dataset.mv)})});
   $('#sheet').querySelectorAll('[data-go]').forEach(function(b){b.addEventListener('click',function(){pickTarget(+b.dataset.go)})});
 }
+const TRAVEL={hutan:[0,2,Math.PI],gunung:[10,-205,0],peternakan:[255,-10,-Math.PI/2],gurun:[190,195,-0.9],hujan:[-245,30,Math.PI/2]};
+function travel(b){const q=TRAVEL[b.id];if(!q)return;closeModal();audio.whoosh(true);fadeTo(function(){P.x=q[0];P.z=q[1];P.y=heightAt(q[0],q[1]);P.swim=false;P.jh=0;P.jv=0;P.eyeS=0;cam.yaw=q[2];cam.pitch=-0.04;terrain.update(P,true)},450)}
 function pickTarget(i){nav.setTarget(i);closeModal();toast('Ikuti panah dan tiang cahaya ke '+HEROES[i].name)}
 let qz=null;
 function shuffle(a,r){for(let i=a.length-1;i>0;i--){const j=Math.floor(r()*(i+1));const t=a[i];a[i]=a[j];a[j]=t}return a}
@@ -634,7 +638,7 @@ function updWorld(dt){
     if(walk(nx,P.z))P.x=nx;
     if(walk(P.x,nz))P.z=nz;
     collide(P);
-    {const m=SIZE/2-14;P.x=clamp(P.x,-m,m);P.z=clamp(P.z,-m,m)}
+    {const r=Math.hypot(P.x,P.z),lim=coastR(P.x,P.z)+85;if(r>lim){P.x*=lim/r;P.z*=lim/r;if(T-edgeT>6){edgeT=T;toast('Arus laut terlalu kuat. Kembali ke pantai.')}}}
     P.phase+=speedNow*dt*1.25;
   }
   const wy=waterAt(P.x,P.z);splash.setLevel(wy);
@@ -759,14 +763,25 @@ setTimeout(function(){$('#loading').style.display='none'},700);
 if(DEBUG)window.__hi={enter:function(i){doEnter(i)},enterFx:enterDissect,exit:exitDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},look:function(i,d){const H=HEROES[i];d=d||11;const L=Math.hypot(H.x,H.z-2)||1;P.x=H.x+(0-H.x)/L*d;P.z=H.z+(2-H.z)/L*d;P.y=heightAt(P.x,P.z);cam.yaw=Math.atan2(P.x-H.x,P.z-H.z);cam.pitch=0.22},getMode:function(){return mode},nav:nav,fx:function(){return [camFx&&camFx.t,camFx&&camFx.dir,dIntro&&dIntro.t]},ds:function(){return dState},fishW:fishW};
 
 let last=performance.now(),paused=false,edgeT=-99;
+/* suasana bioma: kabut, rona langit, dan nama wilayah saat berpindah */
+const ZONE={hutan:['Hutan Ilmu',0.0155,[1,1,1]],hujan:['Hutan Hujan Tropis',0.026,[0.9,1.0,0.95]],gunung:['Pegunungan',0.009,[0.95,0.98,1.05]],peternakan:['Peternakan dan Sawah',0.010,[1.03,1.02,0.95]],gurun:['Gurun Pasir',0.006,[1.12,1.0,0.82]],pantai:['Pantai',0.008,[1.0,1.02,1.05]],laut:['Laut',0.008,[0.95,1.0,1.08]]};
+let bioAcc=0,bioCur='hutan',bioW={},bioT={d:0.0155,c:new THREE.Color(1,1,1)};
+function updBiome(dt){
+  bioAcc+=dt;if(bioAcc>0.3){bioAcc=0;const b=biomeAt(P.x,P.z);bioW=b;let d=0,c=[0,0,0],s=0;
+    const ws={hutan:b.hutan,hujan:b.hujan,gunung:b.gunung,peternakan:b.peternakan,gurun:b.gurun,pantai:b.pantai*1.5,laut:b.laut*2};
+    for(const k in ws){s+=ws[k];d+=ws[k]*ZONE[k][1];c[0]+=ws[k]*ZONE[k][2][0];c[1]+=ws[k]*ZONE[k][2][1];c[2]+=ws[k]*ZONE[k][2][2]}
+    bioT.d=d/s;bioT.c.setRGB(c[0]/s,c[1]/s,c[2]/s);
+    const dm=dominant(b);if(dm!==bioCur){bioCur=dm;const z=$('#zone');z.innerHTML='<small>Memasuki</small>'+ZONE[dm][0];z.classList.remove('on');void z.offsetWidth;z.classList.add('on')}}
+  sky.fogD+=(bioT.d-sky.fogD)*Math.min(1,dt*0.8);sky.tint.lerp(bioT.c,Math.min(1,dt*0.8));
+}
 function step(dt){
   T+=dt;
   if(mode==='world'){
     tDay=(tDay+dt/240)%1;
     updWorld(dt);
     sky.update(tDay,T,dt,{x:P.x,y:P.y+1.6,z:P.z},P.under);setClock();
-    veg.update(P,T,dt);water.update(T);if(bush)bush.update(T);river.update(T);nav.update(dt,P,cam.yaw,T);
-    {const rd=riverInfo(P.x,P.z).d;const nb=function(x,z,r){return Math.pow(clamp(1-Math.hypot(P.x-x,P.z-z)/r,0,1),1.5)};audio.update(dt,{day:sky.day,world:true,under:P.under,river:Math.pow(clamp(1-rd/28,0,1),2),buzz:nb(BUNGA.specimen.x,BUNGA.specimen.z,9),shore:nb(BAKAU.specimen.x,BAKAU.specimen.z,16),log:nb(JAMUR.specimen.x,JAMUR.specimen.z,10)})}
+    terrain.update(P);updBiome(dt);veg.update(P,T,dt);water.update(T,P);if(bush)bush.update(T);river.update(T);nav.update(dt,P,cam.yaw,T);
+    {const rd=riverInfo(P.x,P.z).d;const nb=function(x,z,r){return Math.pow(clamp(1-Math.hypot(P.x-x,P.z-z)/r,0,1),1.5)};audio.update(dt,{day:sky.day,world:true,under:P.under,river:Math.pow(clamp(1-rd/28,0,1),2),buzz:nb(BUNGA.specimen.x,BUNGA.specimen.z,9),shore:nb(BAKAU.specimen.x,BAKAU.specimen.z,16),log:nb(JAMUR.specimen.x,JAMUR.specimen.z,10),bio:bioW,surf:clamp(1-Math.abs(Math.hypot(P.x,P.z)-coastR(P.x,P.z))/60,0,1)})}
     fxW.render(dt);
   }else{
     D.update(dt,T,selected,hovered);

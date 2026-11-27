@@ -1,7 +1,7 @@
 /* Suara lingkungan prosedural (Web Audio, tanpa file aset): angin, burung, jangkrik malam, dan meong kucing.
    AudioContext baru dibuat setelah interaksi pertama pemain (aturan autoplay browser). */
 export function createAudio() {
-  let ctx = null, master = null, lp = null, under = false, brookG = null, brookF = null, windG = null, windF = null, leafG = null, cricG = null, purrG = null, noiseBuf = null, buzzG = null, buzzO = null, lapG = null, logG = null;
+  let ctx = null, master = null, lp = null, under = false, brookG = null, brookF = null, windG = null, windF = null, leafG = null, cricG = null, purrG = null, noiseBuf = null, buzzG = null, buzzO = null, lapG = null, logG = null, surfG = null, surfF = null, cicG = null;
   let on = true, vol = 0.8, nextBird = 3, birdFlock = 0, nextMeow = 6, t = 0;
 
   function init() {
@@ -29,6 +29,11 @@ export function createAudio() {
     buzzG = ctx.createGain(); buzzG.gain.value = 0; buzzO.connect(bf); bf.connect(bam); bam.connect(buzzG); buzzG.connect(master); buzzO.start(); bl.start();
     /* kecipak air di sela akar bakau */
     const lp2 = src('lowpass', 420, 0.6); lapG = lp2.g;
+    /* debur ombak pantai dan tonggeret hutan hujan */
+    const sf = src('lowpass', 700, 0.5); surfG = sf.g; surfF = sf.fl;
+    const o3 = ctx.createOscillator(); o3.type = 'sawtooth'; o3.frequency.value = 5200; const f3 = ctx.createBiquadFilter(); f3.type = 'bandpass'; f3.frequency.value = 5200; f3.Q.value = 3;
+    const am3 = ctx.createGain(); am3.gain.value = 0; const l3 = ctx.createOscillator(); l3.frequency.value = 45; const lg3 = ctx.createGain(); lg3.gain.value = 0.5;
+    cicG = ctx.createGain(); cicG.gain.value = 0; l3.connect(lg3); lg3.connect(am3.gain); o3.connect(f3); f3.connect(am3); am3.connect(cicG); cicG.connect(master); o3.start(); l3.start();
     /* jangkrik siang di dekat kayu lapuk (nada lebih rendah) */
     const o2 = ctx.createOscillator(); o2.type = 'triangle'; o2.frequency.value = 3600; const am2 = ctx.createGain(); am2.gain.value = 0; const l2 = ctx.createOscillator(); l2.frequency.value = 24; const lg2 = ctx.createGain(); lg2.gain.value = 0.5;
     logG = ctx.createGain(); logG.gain.value = 0; l2.connect(lg2); lg2.connect(am2.gain); o2.connect(am2); am2.connect(logG); logG.connect(master); o2.start(); l2.start();
@@ -153,16 +158,19 @@ export function createAudio() {
       if (!ctx || !on) return; t += dt;
       const inW = (s.world ? 1 : 0.25) * (s.under ? 0.25 : 1);
       const gust = 0.5 + 0.5 * Math.sin(t * 0.23) * Math.sin(t * 0.071 + 1.3);
-      ramp(windG, (0.05 + 0.1 * gust) * inW); windF.frequency.setTargetAtTime(260 + 420 * gust, ctx.currentTime, 0.8);
+      const bm = s.bio || {}; ramp(windG, (0.05 + 0.1 * gust) * inW * (1 + 1.6 * (bm.gurun || 0) + 2.2 * (bm.gunung || 0))); windF.frequency.setTargetAtTime(260 + 420 * gust, ctx.currentTime, 0.8);
       ramp(leafG, (0.004 + 0.02 * gust * gust) * inW * (0.4 + 0.6 * s.day));
       ramp(brookG, 0.09 * (s.river || 0) * (s.under ? 0.3 : 1), 0.4); brookF.frequency.setTargetAtTime(900 + 600 * Math.abs(Math.sin(t * 3.7) * Math.sin(t * 1.3)), ctx.currentTime, 0.05);
       ramp(cricG, 0.012 * Math.max(0, 1 - s.day * 2.2) * inW);
       ramp(purrG, s.catSub ? 0.22 : 0, 0.4);
       const bz = (s.buzz || 0) * (s.under ? 0 : 1); ramp(buzzG, 0.035 * bz, 0.3); buzzO.frequency.setTargetAtTime(215 + 30 * Math.sin(t * 1.7) + 15 * Math.sin(t * 5.3), ctx.currentTime, 0.1);
       ramp(lapG, (s.shore || 0) * (0.05 + 0.05 * Math.max(0, Math.sin(t * 1.1) * Math.sin(t * 0.37 + 1))), 0.25);
+      { const wv = 0.5 + 0.5 * Math.sin(t * 0.55) * Math.sin(t * 0.21 + 2); ramp(surfG, (s.surf || 0) * (0.04 + 0.14 * wv * wv) * (s.under ? 0.3 : 1), 0.3); surfF.frequency.setTargetAtTime(400 + 900 * wv, ctx.currentTime, 0.3); }
+      ramp(cicG, 0.01 * (bm.hujan || 0) * s.day * (0.4 + 0.6 * Math.max(0, Math.sin(t * 0.13))) * inW, 0.4);
       ramp(logG, 0.006 * (s.log || 0) * (0.5 + 0.5 * (Math.sin(t * 0.8) > -0.2 ? 1 : 0)), 0.2);
-      if (s.world && !s.under && s.day > 0.35) {
-        nextBird -= dt;
+      const birdK = s.world ? 1 + 1.5 * (bm.hujan || 0) - 0.9 * (bm.gurun || 0) - 0.8 * (bm.gunung || 0) * 0.5 : 1;
+      if (s.world && !s.under && s.day > 0.35 && birdK > 0.15) {
+        nextBird -= dt * birdK;
         if (nextBird <= 0) { bird(0.035 + Math.random() * 0.03); if (birdFlock > 0) { birdFlock--; nextBird = 0.4 + Math.random() * 0.9; } else { birdFlock = Math.random() < 0.3 ? 2 + Math.floor(Math.random() * 3) : 0; nextBird = 3 + Math.random() * 7; } }
       }
     },
