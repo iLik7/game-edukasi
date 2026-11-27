@@ -19,6 +19,9 @@ import SP_BURUNG from './species/burung.js';
 import SP_PENYU from './species/penyu.js';
 import SP_KERBAU from './species/kerbau.js';
 import SP_ENGGANG from './species/enggang.js';
+import SP_ELANG from './species/elangjawa.js';
+import { ELANG, EDELWEIS, CEMARA, IKLIM, GLETSER } from './objects/gunung.js';
+import { buildMountainDecor, buildEdelweissDissect, buildCasuarinaDissect, buildClimateDissect, buildGlacierDissect } from './mountain.js';
 import { ENGGANG, RAFFLESIA, KANTONG, TAJUK } from './objects/hutanhujan.js';
 import { buildRainforestDecor, buildRafflesiaDissect, buildPitcherDissect, buildCanopyDissect } from './rainforest.js';
 import SP_BEBEK from './species/bebek.js';
@@ -51,13 +54,13 @@ import { createSplash } from './splash.js';
 'use strict';
 const KEY='hutan-ilmu-v1',QKEY='hutan-ilmu-q';
 const TLAYERS=OBJ.layers,TREES=OBJ.specimens,QUIZ=OBJ.quiz;
-const AN=[{data:CAT,spec:SP_KUCING},{data:ruminantData('sapi'),spec:SP_SAPI},{data:ruminantData('kambing'),spec:SP_KAMBING},{data:AYAM,spec:SP_AYAM,extra:[[-6,13.5],[-2.5,14]]},{data:KUPU,spec:SP_KUPU,extra:[[-5,-1],[0,-5.5]]},{data:KATAK,spec:SP_KATAK,extra:[[-19,18],[-17.5,23.5]]},{data:BURUNG,spec:SP_BURUNG,extra:[[-9,2],[11,-5]]},{data:KEPITING,spec:SP_KEPITING,extra:[[-22,16],[-22,38]]},{data:PENYU,spec:SP_PENYU,extra:[[-12,176]]},{data:UNTA,spec:SP_UNTA,extra:[[255,235],[220,190]]},{data:KERBAU,spec:SP_KERBAU,extra:[[228,-12]]},{data:BEBEK,spec:SP_BEBEK,extra:[[270,-100],[258,-99],[262,-92]]},{data:ENGGANG,spec:SP_ENGGANG,extra:[[-300,-30]]}];
+const AN=[{data:CAT,spec:SP_KUCING},{data:ruminantData('sapi'),spec:SP_SAPI},{data:ruminantData('kambing'),spec:SP_KAMBING},{data:AYAM,spec:SP_AYAM,extra:[[-6,13.5],[-2.5,14]]},{data:KUPU,spec:SP_KUPU,extra:[[-5,-1],[0,-5.5]]},{data:KATAK,spec:SP_KATAK,extra:[[-19,18],[-17.5,23.5]]},{data:BURUNG,spec:SP_BURUNG,extra:[[-9,2],[11,-5]]},{data:KEPITING,spec:SP_KEPITING,extra:[[-22,16],[-22,38]]},{data:PENYU,spec:SP_PENYU,extra:[[-12,176]]},{data:UNTA,spec:SP_UNTA,extra:[[255,235],[220,190]]},{data:KERBAU,spec:SP_KERBAU,extra:[[228,-12]]},{data:BEBEK,spec:SP_BEBEK,extra:[[270,-100],[258,-99],[262,-92]]},{data:ENGGANG,spec:SP_ENGGANG,extra:[[-300,-30]]},{data:ELANG,spec:SP_ELANG,extra:[[10,-260]]}];
 const FI=FISH_IDS.map(function(id){const d=fishData(id);return {data:d,spec:fishSpec(d.P),fish:true}});
 const MO=['kelapa','bambu'].map(function(id){const d=monoData(id);return {data:d,mono:true,buildD:function(r){return buildMonoDissect(r,{type:id})}}});
 const LF=[{data:DAUN,leaf:true,buildD:function(r){return buildLeafDissect(r)}}];
 const GEO=[{data:TANAH,geo:true,buildD:buildSoilDissect},{data:BATUAN,geo:true,buildD:buildRockDissect},{data:AIR,geo:true,buildD:buildWaterCycleDissect}];
 const FL=[{data:BUNGA,flower:true,buildD:buildFlowerDissect}];
-const ECO=[{data:BAKAU,geo:true,buildD:buildMangroveDissect},{data:JAMUR,geo:true,buildD:buildFungusDissect},{data:KARANG,geo:true,buildD:buildReefDissect},{data:GUMUK,geo:true,buildD:buildDuneDissect},{data:KAKTUS,geo:true,buildD:buildCactusDissect},{data:PADI,geo:true,buildD:buildRiceDissect},{data:LEBAH,geo:true,buildD:buildHiveDissect},{data:KOMPOS,geo:true,buildD:buildCompostDissect},{data:RAFFLESIA,geo:true,buildD:buildRafflesiaDissect},{data:KANTONG,geo:true,buildD:buildPitcherDissect},{data:TAJUK,geo:true,buildD:buildCanopyDissect}];
+const ECO=[{data:BAKAU,geo:true,buildD:buildMangroveDissect},{data:JAMUR,geo:true,buildD:buildFungusDissect},{data:KARANG,geo:true,buildD:buildReefDissect},{data:GUMUK,geo:true,buildD:buildDuneDissect},{data:KAKTUS,geo:true,buildD:buildCactusDissect},{data:PADI,geo:true,buildD:buildRiceDissect},{data:LEBAH,geo:true,buildD:buildHiveDissect},{data:KOMPOS,geo:true,buildD:buildCompostDissect},{data:RAFFLESIA,geo:true,buildD:buildRafflesiaDissect},{data:KANTONG,geo:true,buildD:buildPitcherDissect},{data:TAJUK,geo:true,buildD:buildCanopyDissect},{data:EDELWEIS,geo:true,buildD:buildEdelweissDissect},{data:CEMARA,geo:true,buildD:buildCasuarinaDissect},{data:IKLIM,geo:true,buildD:buildClimateDissect},{data:GLETSER,geo:true,buildD:buildGlacierDissect}];
 const ALL=AN.concat(FI,MO,LF,GEO,FL,ECO);
 const HEROES=TREES.concat(ALL.map(function(a){return a.data.specimen}));
 ALL.forEach(function(a,i){a.hi=TREES.length+i});
@@ -125,7 +128,7 @@ setPaths(TREES.concat(MO.map(function(a){return a.data.specimen})));
 const world=new THREE.Scene();
 const wcam=new THREE.PerspectiveCamera(66,1,0.15,1200);wcam.rotation.order='YXZ';
 const sky=createSky(world,renderer);
-const terrain=buildTerrain(world);const coastDeco=buildCoastDecor(world,heightAt,WATER);const rain=buildRainforestDecor(world,heightAt,{tajuk:[-250,20],rafflesia:[-262,34],kantong:[-238,40]});const farm=buildFarm(world,heightAt,{sawah:{x0:225,z0:-75,nx:4,nz:3,w:14,d:10},kandang:[302,22],lebah:[300,-75],kompos:[292,12],center:[260,-30]});terrain.update({x:0,z:2},true);
+const terrain=buildTerrain(world);const coastDeco=buildCoastDecor(world,heightAt,WATER);const rain=buildRainforestDecor(world,heightAt,{tajuk:[-250,20],rafflesia:[-262,34],kantong:[-238,40]});const farm=buildFarm(world,heightAt,{sawah:{x0:225,z0:-75,nx:4,nz:3,w:14,d:10},kandang:[302,22],lebah:[300,-75],kompos:[292,12],center:[260,-30]});const mtn=buildMountainDecor(world,heightAt,{cemara:[-15,-215],edelweis:[22,-242],gletser:[0,-345],iklim:[8,-198]});terrain.update({x:0,z:2},true);
 const water=buildWater(world);
 const splash=createSplash(world,WATER);
 const river=buildRiver(world);
@@ -145,7 +148,7 @@ function collide(p){
   }
 }
 
-const veg=await buildVegetation({scene:world,heroes:TREES,clear:[PADDOCK,{x:4,z:-3,r:2.5},{x:-12,z:-16,r:3.5},{x:20,z:-2,r:4},{x:-18.5,z:29.5,r:2.5},{x:-27,z:14.5,r:7},{x:13,z:-8,r:2.5},{x:-250,z:20,r:12},{x:-290,z:45,r:9},{x:-220,z:-15,r:9},{x:-262,z:34,r:4},{x:-238,z:40,r:4}].concat(MO.map(function(a){const H=a.data.specimen;return {x:H.x,z:H.z,r:5}}),[{x:-18,z:38,r:5}]),addObs:addObs,quality:quality,progress:function(f,t){loadProgress(0.1+f*0.6,t)}});
+const veg=await buildVegetation({scene:world,heroes:TREES,clear:[PADDOCK,{x:4,z:-3,r:2.5},{x:-12,z:-16,r:3.5},{x:20,z:-2,r:4},{x:-18.5,z:29.5,r:2.5},{x:-27,z:14.5,r:7},{x:13,z:-8,r:2.5},{x:-250,z:20,r:12},{x:-290,z:45,r:9},{x:-220,z:-15,r:9},{x:-262,z:34,r:4},{x:-238,z:40,r:4},{x:-15,z:-215,r:24},{x:22,z:-242,r:10},{x:8,z:-198,r:4},{x:0,z:-345,r:14}].concat(MO.map(function(a){const H=a.data.specimen;return {x:H.x,z:H.z,r:5}}),[{x:-18,z:38,r:5}]),addObs:addObs,quality:quality,progress:function(f,t){loadProgress(0.1+f*0.6,t)}});
 const heroObjs=veg.heroObjs,heroHits=veg.heroHits;
 /* hewan di dunia: dijadwalkan setelah pohon supaya tag, prompt, dan klik memakai jalur yang sama */
 AN.forEach(function(a,k){
@@ -216,6 +219,8 @@ ECO.forEach(function(a){
   else if(a.data.id==='jamur'){buildMushroomLog(world,H.x,y,H.z,0.4);addObs(H.x,H.z,1.2)}
   else if(a.data.id==='lebah'||a.data.id==='kompos'){addObs(H.x,H.z,a.data.id==='kompos'?1.3:0.5)}
   else if(a.data.id==='padi'){}
+  else if(a.data.id==='cemara'){addObs(H.x,H.z,1.2)}
+  else if(a.data.id==='iklim'){addObs(H.x,H.z,0.6)}
   else if(a.data.id==='tajuk'){[[-250,20],[-290,45],[-220,-15]].forEach(function(q){addObs(q[0],q[1],2.6)})}
   else if(a.data.id==='kaktus'){const cm=new THREE.MeshStandardMaterial({color:new THREE.Color().setRGB(0.3,0.5,0.26,THREE.SRGBColorSpace),roughness:0.55});const k=new THREE.Mesh(new THREE.CylinderGeometry(0.45,0.5,4.2,14).translate(0,2.1,0),cm),t=new THREE.Mesh(new THREE.SphereGeometry(0.45,14,10).translate(0,4.2,0),cm),arm=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.3,1.6,12).translate(0.9,3.0,0),cm),arm2=new THREE.Mesh(new THREE.CylinderGeometry(0.28,0.3,0.6,10).rotateZ(Math.PI/2).translate(0.6,2.2,0),cm);[k,t,arm,arm2].forEach(function(m){m.castShadow=true;m.position.set(H.x,y-0.1,H.z);world.add(m)});addObs(H.x,H.z,0.7)}
   const mk=new THREE.Mesh(new THREE.OctahedronGeometry(0.2,0),new THREE.MeshStandardMaterial({color:0xffd35a,emissive:0xffa800,emissiveIntensity:2.2,roughness:0.3}));mk.position.set(H.x,0,H.z);mk.userData.noAO=true;world.add(mk);
@@ -313,6 +318,10 @@ function geoCaption(){
   if(subject==='lebah'){const d=Math.round(s*21);return 'Hari ke-'+d+': '+(d<3?'telur di dasar sel.':d<9?'larva diberi makan terus oleh lebah perawat.':d<21?'sel ditutup lilin, larva berubah menjadi pupa.':'lebah pekerja dewasa keluar dari sel.')}
   if(subject==='kompos'){const w=Math.round(s*12),t=Math.round(dState.temp||30);return 'Minggu ke-'+w+', suhu dalam tumpukan sekitar '+t+' °C. '+(w<1?'Bahan baru ditumpuk berlapis hijau dan cokelat.':w<4?'Fase panas: mikroba bekerja sangat aktif. Tumpukan perlu dibalik agar dapat oksigen.':w<9?'Tumpukan mendingin, cacing tanah dan jamur mulai datang.':'Kompos matang: gelap, gembur, berbau tanah.')}
   if(subject==='rafflesia')return s<0.7?'Kuncup tumbuh perlahan dari liana inang selama berbulan-bulan ('+Math.round(s/0.7*9)+' dari sekitar 9 bulan).':s<0.9?'Mekar! Bau seperti bangkai menarik lalat bangkai. Bunga hanya bertahan sekitar seminggu.':'Bunga layu, menghitam, dan membusuk.';
+  if(subject==='edelweis'){return s<0.3?'Edelweis Jawa utuh: braktea putih berbulu mengelilingi bonggol bunga kuning.':s<0.7?'Memperbesar permukaan daun...':'Rambut daun (trikoma) yang rapat seperti wol: memantulkan sinar UV (titik ungu), menahan udara hangat, dan mengurangi penguapan.'}
+  if(subject==='cemara'){return s<0.25?'Cemara gunung utuh. Helai hijau yang menjuntai itu ranting, bukan daun.':s<0.6?'Ranting beruas-ruas. Daun aslinya berupa sisik kecil yang melingkar di tiap buku.':'Bintil akar berisi bakteri Frankia mengikat nitrogen dari udara tanah (titik biru).'}
+  if(subject==='iklim'){const h=Math.round(s*4884/10)*10,t=26.3-0.6*h/100;return 'Ketinggian sekitar '+h.toLocaleString('id-ID')+' m, suhu rata-rata sekitar '+t.toFixed(1).replace('.',',')+' °C. '+(h<700?'Zona panas: padi, kelapa, tebu.':h<1500?'Zona sedang: kopi, kakao.':h<2500?'Zona sejuk: teh, sayuran, hutan pegunungan.':h<4000?'Zona dingin: semak, rumput, lumut, edelweis.':'Hanya di puncak tertinggi seperti Puncak Jaya ada salju dan es.')+' (Rumus Junghuhn: turun ~0,6 °C tiap naik 100 m.)'}
+  if(subject==='gletser'){const y=Math.round(lerp(1850,2030,s)),D=[[1850,19.3],[2000,2.3],[2021,0.27],[2022,0.23]];let a=null;for(let i=1;i<D.length;i++)if(y<=D[i][0]){const k=(y-D[i-1][0])/(D[i][0]-D[i-1][0]);a=D[i-1][1]+(D[i][1]-D[i-1][1])*k;break}return 'Tahun '+y+'. '+(a!==null?'Luas es Puncak Jaya sekitar '+(a<1?a.toFixed(2):a.toFixed(1)).replace('.',',')+' km² (perkiraan dari pengukuran).':'Proyeksi: peneliti memperkirakan es Puncak Jaya bisa hilang dalam beberapa tahun.')+(y>=2015&&y<=2016?' El Niño 2015-2016 mempercepat pencairan, sekitar 5 m per tahun.':'')+' (Diorama: ukuran tidak sebanding.)'}
   if(subject==='kantong')return s<0.15?'Semut tertarik nektar di bibir kantong.':s<0.55?'Bibir yang licin membuat semut tergelincir; dinding berlilin mencegahnya memanjat keluar.':s<0.8?'Semut tenggelam di cairan pencerna dan mulai diuraikan enzim.':'Hara (nitrogen, fosfor) dari semut diserap dinding kantong (titik hijau).';
   if(subject==='tajuk'){const h=Math.round(lerp(1,44,s));return 'Ketinggian sekitar '+h+' m. '+(h<5?'Lantai hutan: gelap dan lembap, hanya sekitar 1-2% cahaya matahari yang sampai.':h<15?'Bawah tajuk: teduh, daun-daun lebar menangkap sisa cahaya.':h<36?'Kanopi: atap hutan yang rapat, paling banyak buah dan hewan.':'Pohon mencuat: cahaya penuh, angin kencang, dan panas.')+' (Diorama diperkecil.)'}
   if(subject==='batuan')return 'Kecepatan dipercepat supaya terlihat. Di alam, satu putaran siklus batuan bisa butuh jutaan tahun.';
@@ -411,7 +420,7 @@ function doEnter(i){
     mode='dissect';document.body.classList.add('dissect');
     $('#dName').textContent=H.name;$('#dSci').textContent=(H.kind==='geo'?'Bumi dan lingkungan · ':H.kind==='leaf'?'Daun dan fotosintesis · ':H.kind==='flower'?'Bunga dan penyerbukan · ':isAnimal()&&H.kind!=='mono'?'Anatomi dan fisiologi · ':'Penampang batang · ')+H.sci;
     dState.yaw=dState.yaw0||0;dState.user=false;
-    if(H.kind==='geo'){const b=H.dist||{tanah:15,batuan:15,siklusair:19}[H.id];dState.dist=window.innerWidth<760?b*1.8:b;dState.sun=0.5;if(H.id==='kaktus'){dState.sun=0.8;dState.depthT=0.8;const dd=$('#depth');if(dd)dd.value=80;const a=$('#sun');if(a)a.value=80}else if(H.id==='karang'){dState.sun=0.3}else if(H.id==='rafflesia'){dState.sun=0.8}else if(H.id==='tajuk'){dState.sun=0}else if(H.id==='kantong'){dState.sun=0.3}if(H.id==='siklusair'){dState.forest=0.8;const f=$('#forest');if(f)f.value=80}const a=$('#sun');if(a)a.value=Math.round(dState.sun*100)}
+    if(H.kind==='geo'){const b=H.dist||{tanah:15,batuan:15,siklusair:19}[H.id];dState.dist=window.innerWidth<760?b*1.8:b;dState.sun=0.5;if(H.id==='kaktus'){dState.sun=0.8;dState.depthT=0.8;const dd=$('#depth');if(dd)dd.value=80;const a=$('#sun');if(a)a.value=80}else if(H.id==='karang'){dState.sun=0.3}else if(H.id==='rafflesia'){dState.sun=0.8}else if(H.id==='tajuk'){dState.sun=0}else if(H.id==='kantong'){dState.sun=0.3}else if(H.id==='edelweis'||H.id==='cemara'||H.id==='iklim'||H.id==='gletser'){dState.sun=0}if(H.id==='siklusair'){dState.forest=0.8;const f=$('#forest');if(f)f.value=80}const a=$('#sun');if(a)a.value=Math.round(dState.sun*100)}
     else if(H.kind==='leaf'){dState.pitch=0.45;dState.dist=window.innerWidth<760?22:13;dState.depthT=0;dState.depth=0;dState.sun=0.7;dState.co2=0.6;dState.h2o=0.8;dState.hold=0;dState.ok=!!S.found[fk('maks')];[['#sun',70],['#depth',0],['#co2',60],['#h2o',80]].forEach(function(q){const e=$(q[0]);if(e)e.value=q[1]})}
     else if(H.kind==='flower'){dState.pitch=0.35;dState.dist=window.innerWidth<760?20:11;dState.depthT=0;dState.depth=0;const b=$('#depth');if(b)b.value=0}
     else if(H.kind==='mono'){dState.pitch=0.55;dState.dist=window.innerWidth<760?24:14;dState.depthT=0;dState.depth=0;dState.sun=0.65;const a=$('#sun'),b=$('#depth');if(a)a.value=65;if(b)b.value=0}
@@ -784,7 +793,7 @@ sky.update(tDay,T,0.016,{x:P.x,y:P.y+1.6,z:P.z});setClock();
 $('#loading').classList.add('done');
 setTimeout(function(){$('#loading').style.display='none'},700);
 
-if(DEBUG)window.__hi={enter:function(i){doEnter(i)},enterFx:enterDissect,exit:exitDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},look:function(i,d){const H=HEROES[i];d=d||11;const L=Math.hypot(H.x,H.z-2)||1;P.x=H.x+(0-H.x)/L*d;P.z=H.z+(2-H.z)/L*d;P.y=heightAt(P.x,P.z);cam.yaw=Math.atan2(P.x-H.x,P.z-H.z);cam.pitch=0.22},getMode:function(){return mode},nav:nav,h:heightAt,terrain:terrain,wcam:wcam,THREE:THREE,fx:function(){return [camFx&&camFx.t,camFx&&camFx.dir,dIntro&&dIntro.t]},ds:function(){return dState},fishW:fishW};
+if(DEBUG)window.__hi={ids:function(){return HEROES.map(function(h){return h.id})},enter:function(i){doEnter(i)},enterFx:enterDissect,exit:exitDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},look:function(i,d){const H=HEROES[i];d=d||11;const L=Math.hypot(H.x,H.z-2)||1;P.x=H.x+(0-H.x)/L*d;P.z=H.z+(2-H.z)/L*d;P.y=heightAt(P.x,P.z);cam.yaw=Math.atan2(P.x-H.x,P.z-H.z);cam.pitch=0.22},getMode:function(){return mode},nav:nav,h:heightAt,terrain:terrain,wcam:wcam,THREE:THREE,fx:function(){return [camFx&&camFx.t,camFx&&camFx.dir,dIntro&&dIntro.t]},ds:function(){return dState},fishW:fishW};
 
 let last=performance.now(),paused=false,edgeT=-99;
 /* suasana bioma: kabut, rona langit, dan nama wilayah saat berpindah */
@@ -804,7 +813,7 @@ function step(dt){
     tDay=(tDay+dt/240)%1;
     updWorld(dt);
     sky.update(tDay,T,dt,{x:P.x,y:P.y+1.6,z:P.z},P.under);setClock();
-    terrain.update(P);coastDeco.update(P);farm.update(P,T);rain.update(P);updBiome(dt);veg.update(P,T,dt);water.update(T,P);if(bush)bush.update(T);river.update(T);nav.update(dt,P,cam.yaw,T);
+    terrain.update(P);coastDeco.update(P);farm.update(P,T);rain.update(P);mtn.update(P);updBiome(dt);veg.update(P,T,dt);water.update(T,P);if(bush)bush.update(T);river.update(T);nav.update(dt,P,cam.yaw,T);
     {const rd=riverInfo(P.x,P.z).d;const nb=function(x,z,r){return Math.pow(clamp(1-Math.hypot(P.x-x,P.z-z)/r,0,1),1.5)};audio.update(dt,{day:sky.day,world:true,under:P.under,river:Math.pow(clamp(1-rd/28,0,1),2),buzz:nb(BUNGA.specimen.x,BUNGA.specimen.z,9),shore:nb(BAKAU.specimen.x,BAKAU.specimen.z,16),log:nb(JAMUR.specimen.x,JAMUR.specimen.z,10),bio:bioW,surf:clamp(1-Math.abs(Math.hypot(P.x,P.z)-coastR(P.x,P.z))/60,0,1)})}
     fxW.render(dt);
   }else{
