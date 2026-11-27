@@ -15,7 +15,7 @@ const at = (m, p) => { m.position.copy(p); return m; };
 
 /* ---------- bentuk bersama ---------- */
 /* edelweis: roset daun sempit berbulu putih keabuan, tangkai dengan bonggol bunga putih (braktea) berpusat kuning */
-function edelweissGeo(r, s = 1) {
+export function edelweissGeo(r, s = 1) {
   const leaves = [], stems = [], bracts = [], discs = [];
   for (let k = 0; k < 28; k++) { const a = r() * TAU, h = r() * 0.45 * s; leaves.push(new THREE.PlaneGeometry(0.04 * s, 0.2 * s).translate(0, 0.1 * s, 0).rotateX(-0.7 - r() * 0.5).rotateY(a).translate(0, h, 0)); }
   for (let f = 0; f < 5; f++) { const a = r() * TAU, d = r() * 0.15 * s, top = V(Math.cos(a) * d, (0.55 + r() * 0.25) * s, Math.sin(a) * d); stems.push(tubeG([[0, 0, 0], [top.x * 0.5, top.y * 0.5, top.z * 0.5], top.toArray()], 0.012 * s, 6, 4));

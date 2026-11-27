@@ -98,10 +98,10 @@ export function ruminantData(sp) {
   return {
     id: sp, name: S ? 'Sapi' : 'Kambing', layers: common(sp), quiz: quiz(sp),
     specimen: S
-      ? { id:'sapi', kind:'animal', name:'Sapi perah', short:'sapi', sci:'Bos taurus (Friesian Holstein)', family:'Bovidae', x:10, z:21, top:1.7, mkOff:0.9, promptY:1.1, tagNear:7,
+      ? { id:'sapi', kind:'animal', name:'Sapi perah', short:'sapi', sci:'Bos taurus (Friesian Holstein)', family:'Bovidae', x:262, z:33, top:1.7, mkOff:0.9, promptY:1.1, tagNear:7,
           fact:'Sapi adalah ruminansia, hewan memamah biak dengan lambung empat ruang. Sapi perah Friesian Holstein dipelihara untuk diambil susunya.',
           hint:'Geser Kedalaman untuk mengupas lapisan. Di bagian organ, titik oranye adalah perjalanan makanan dan titik hijau adalah gumpalan makanan yang naik lagi ke mulut untuk dikunyah ulang (memamah biak). Kamera mulai dari sisi kiri supaya rumen terlihat.' }
-      : { id:'kambing', kind:'animal', name:'Kambing PE', short:'kambing', sci:'Capra hircus (Peranakan Etawa)', family:'Bovidae', x:16, z:24, top:1.05, mkOff:0.7, promptY:0.75, tagNear:6,
+      : { id:'kambing', kind:'animal', name:'Kambing PE', short:'kambing', sci:'Capra hircus (Peranakan Etawa)', family:'Bovidae', x:268, z:38, top:1.05, mkOff:0.7, promptY:0.75, tagNear:6,
           fact:'Kambing juga ruminansia berlambung empat ruang. Kambing PE terkenal dengan telinga panjangnya yang menggantung.',
           hint:'Geser Kedalaman untuk mengupas lapisan. Titik oranye adalah perjalanan makanan, titik hijau adalah gumpalan makanan yang dikunyah ulang (memamah biak). Bandingkan ginjal dan ambingnya dengan sapi.' },
   };

@@ -15,7 +15,7 @@ void main(){
 
 const FRAG = /* glsl */`
 uniform vec3 uZenith, uHorizon, uBelow, uSunDir, uSunColor, uCloudLit, uCloudDark;
-uniform float uTime, uCloud, uSunDisc;
+uniform float uTime, uCloud, uSunDisc, uOver;
 varying vec3 vDir;
 float h21(vec2 p){ p = fract(p*vec2(123.34,456.21)); p += dot(p,p+45.32); return fract(p.x*p.y); }
 float vn(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.-2.*f);
@@ -27,17 +27,18 @@ void main(){
   vec3 col = y >= 0. ? mix(uHorizon, uZenith, pow(clamp(y,0.,1.), 0.42)) : mix(uHorizon, uBelow, smoothstep(0.,0.35,-y));
   float sd = max(dot(d, uSunDir), 0.);
   col += uSunColor * (pow(sd, 6.) * 0.10 + pow(sd, 48.) * 0.35 + pow(sd, 700.) * 1.4);
-  col += uSunColor * uSunDisc * smoothstep(0.99985, 0.99992, sd) * 40.;
+  col += uSunColor * uSunDisc * (1. - uOver) * smoothstep(0.99985, 0.99992, sd) * 40.;
   if (uCloud > 0.001 && y > 0.0) {
     vec2 uv = d.xz / (y + 0.16) * 0.55 + vec2(uTime * 0.006, uTime * 0.002);
     float n = fbm(uv);
-    float cov = smoothstep(0.50, 0.78, n) * uCloud;
+    float cov = smoothstep(0.50 - 0.42 * uOver, 0.78 - 0.3 * uOver, n) * uCloud;
     float thick = fbm(uv * 2.3 + 5.0);
     vec3 cc = mix(uCloudLit, uCloudDark, smoothstep(0.35, 0.85, thick) * 0.75);
     cc += uSunColor * pow(sd, 5.) * 0.35 * (1. - cov * 0.5);
     cov *= smoothstep(0.0, 0.22, y);
     col = mix(col, cc, cov);
   }
+  col = mix(col, uCloudDark * 1.15, uOver * 0.55 * smoothstep(-0.1, 0.1, y));
   gl_FragColor = vec4(col, 1.0);
 }`;
 
@@ -46,7 +47,7 @@ function makeUniforms() {
     uZenith: { value: new THREE.Color() }, uHorizon: { value: new THREE.Color() }, uBelow: { value: new THREE.Color() },
     uSunDir: { value: new THREE.Vector3(0, 1, 0) }, uSunColor: { value: new THREE.Color() },
     uCloudLit: { value: new THREE.Color() }, uCloudDark: { value: new THREE.Color() },
-    uTime: { value: 0 }, uCloud: { value: 0.8 }, uSunDisc: { value: 1 },
+    uTime: { value: 0 }, uCloud: { value: 0.8 }, uSunDisc: { value: 1 }, uOver: { value: 0 },
   };
 }
 function makeDome(u, radius) {
@@ -99,11 +100,13 @@ export function createSky(scene, renderer) {
   scene.fog = new THREE.FogExp2(0xaabbcc, 0.0155);
 
   const sunDir = new THREE.Vector3();
-  let envTimer = 99, lastElev = 9, isNight = false;
+  let envTimer = 99, lastElev = 9, lastOv = 0, isNight = false;
   const api = {
     sun, sunDir, day: 1, elev: 1, get isNight() { return isNight; },
     /* suasana bioma: kepadatan kabut dan rona cakrawala (diatur dari main) */
     fogD: 0.0155, tint: new THREE.Color(1, 1, 1),
+    /* cuaca: target (0..1) diatur dari main; nilai aktual dihaluskan */
+    weather: { cloud: 0, rain: 0 }, wx: { cloud: 0, rain: 0 },
     envEvery: 2.5,
     setShadowSize(px) {
       if (sun.shadow.mapSize.x === px) return;
@@ -111,6 +114,7 @@ export function createSky(scene, renderer) {
       if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; }
     },
     update(tDay, T, dt, focus, under) {
+      const W = api.wx, k = Math.min(1, dt * 0.6); W.cloud += (api.weather.cloud - W.cloud) * k; W.rain += (api.weather.rain - W.rain) * k; const ov = W.cloud;
       const a = (tDay - 0.25) * TAU, elev = Math.sin(a);
       const day = smooth(-0.12, 0.3, elev), twi = Math.exp(-Math.pow(elev / 0.2, 2));
       api.day = day; api.elev = elev;
@@ -123,7 +127,8 @@ export function createSky(scene, renderer) {
         u.uSunColor.value.setRGB(1.0, 0.62 + 0.38 * smooth(0, 0.5, elev), 0.38 + 0.62 * smooth(0, 0.6, elev)).multiplyScalar(smooth(-0.1, 0.08, elev));
         u.uCloudLit.value.setRGB(lerp(0.03, 0.95, day), lerp(0.04, 0.96, day), lerp(0.07, 1.0, day)).lerp(tmp.setRGB(1.3, 0.62, 0.38), twi * 0.65);
         u.uCloudDark.value.copy(u.uCloudLit.value).multiplyScalar(0.5).lerp(tmp.setRGB(0.05, 0.08, 0.16), 0.25);
-        u.uTime.value = T;
+        u.uTime.value = T; u.uOver.value = ov;
+        if (ov > 0.001) { const g = (u.uHorizon.value.r + u.uHorizon.value.g + u.uHorizon.value.b) / 3; u.uHorizon.value.lerp(tmp.setRGB(g, g * 1.02, g * 1.06), ov * 0.7).multiplyScalar(1 - 0.42 * ov - 0.12 * W.rain); const gz = (u.uZenith.value.r + u.uZenith.value.g + u.uZenith.value.b) / 3; u.uZenith.value.lerp(tmp.setRGB(gz * 1.3, gz * 1.32, gz * 1.38), ov * 0.75).multiplyScalar(1 - 0.3 * ov); u.uCloudDark.value.multiplyScalar(1 - 0.35 * ov); }
       }
       UE.uBelow.value.setRGB(0.05, 0.07, 0.03).multiplyScalar(0.15 + 0.85 * day);
       U.uBelow.value.copy(U.uHorizon.value);
@@ -134,28 +139,28 @@ export function createSky(scene, renderer) {
         scene.fog.color.setRGB(0.012, 0.06, 0.065).multiplyScalar(0.25 + 0.75 * day);
         scene.fog.density = 0.11; dome.visible = false; stars.visible = false; moon.visible = false;
         scene.background = scene.fog.color;
-      } else { scene.fog.density = api.fogD; dome.visible = true; stars.visible = true; scene.background = null; }
-      scene.environmentIntensity = 0.42 + 0.85 * day;
+      } else { scene.fog.density = api.fogD * (1 + 0.3 * ov + 0.6 * W.rain); dome.visible = true; stars.visible = true; scene.background = null; }
+      scene.environmentIntensity = (0.42 + 0.85 * day) * (1 - 0.3 * ov);
 
       const cx = focus.x, cy = focus.y, cz = focus.z;
       dome.position.set(cx, cy, cz);
-      stars.position.set(cx, 0, cz); stars.material.opacity = Math.pow(1 - day, 2) * 0.95;
+      stars.position.set(cx, 0, cz); stars.material.opacity = Math.pow(1 - day, 2) * 0.95 * (1 - ov * 0.9);
       moon.position.set(cx - sunDir.x * 700, cy - sunDir.y * 700, cz - sunDir.z * 700); moon.visible = elev < 0.1 && !under;
 
       /* matahari/bulan mengikuti pemain, dibulatkan agar bayangan tidak berkedip */
       const sx = Math.round(cx * 2) / 2, sz = Math.round(cz * 2) / 2;
       sun.position.set(sx + sunDir.x * 120, cy + sunDir.y * 120, sz + sunDir.z * 120);
       sun.target.position.set(sx, cy, sz); sun.target.updateMatrixWorld();
-      sun.intensity = 6.0 * smooth(-0.02, 0.28, elev);
+      sun.intensity = 6.0 * smooth(-0.02, 0.28, elev) * (1 - 0.72 * ov);
       sun.color.setRGB(1.0, 0.72 + 0.28 * smooth(0, 0.5, elev), 0.5 + 0.5 * smooth(0, 0.6, elev));
-      sun.castShadow = elev > 0.01;
-      moonL.intensity = 0.95 * (1 - day);
+      sun.castShadow = elev > 0.01 && ov < 0.85;
+      moonL.intensity = 0.95 * (1 - day) * (1 - 0.6 * ov);
       moonL.position.set(cx - sunDir.x * 100, cy - sunDir.y * 100 + 20, cz - sunDir.z * 100);
 
       const night = day < 0.25; if (night !== isNight) isNight = night;
 
       envTimer += dt;
-      if (envTimer > api.envEvery && Math.abs(elev - lastElev) > 0.002) { envTimer = 0; lastElev = elev; api.refreshEnv(scene); }
+      if (envTimer > api.envEvery && (Math.abs(elev - lastElev) > 0.002 || Math.abs(ov - lastOv) > 0.02)) { envTimer = 0; lastElev = elev; lastOv = ov; api.refreshEnv(scene); }
     },
     refreshEnv(target) {
       const next = pmrem.fromScene(envScene, 0, 0.1, 100, { size: 128 });

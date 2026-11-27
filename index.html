@@ -24,11 +24,19 @@
   <p id="near"></p>
 </div>
 <div id="topRight" class="fixed world-ui show">
-  <span id="clock"><i></i><span id="clockTxt">07:00</span></span>
+  <button id="clock" type="button" aria-haspopup="true" aria-expanded="false" title="Atur waktu dan cuaca"><i></i><span id="clockTxt">07:00</span><span id="wxIco" aria-hidden="true"></span></button>
   <button class="btn" id="bQual" type="button" title="Ganti kualitas grafik"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.5 5.5L20 9l-4 4 1 6-5-3-5 3 1-6-4-4 5.5-.5z"/></svg><span>Grafik</span></button>
   <button class="btn" id="bSnd" type="button" title="Suara nyala atau mati"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7"/></svg><span>Suara</span></button>
   <button class="btn" id="bJournal" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"/><path d="M4 21V5"/><path d="M9 8h6"/></svg>Jurnal</button>
   <button class="btn" id="bQuizW" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"/><path d="M12 17h.01"/></svg>Kuis</button>
+</div>
+<div id="wx" class="fixed" hidden role="dialog" aria-label="Waktu dan cuaca">
+  <p class="wxh">Waktu</p>
+  <div class="seg" id="wxTime"><button type="button" data-t="0.29">Pagi</button><button type="button" data-t="0.5">Siang</button><button type="button" data-t="0.71">Sore</button><button type="button" data-t="0.875">Malam</button></div>
+  <button type="button" id="wxPause" class="wxtog" aria-pressed="false">Hentikan jam</button>
+  <p class="wxh">Cuaca</p>
+  <div class="seg seg3" id="wxSky"><button type="button" data-w="cerah">Cerah</button><button type="button" data-w="mendung">Mendung</button><button type="button" data-w="hujan">Hujan</button></div>
+  <p class="wxn">1 jam di game = 1 menit sungguhan.</p>
 </div>
 <canvas id="mini" class="fixed world-ui show" aria-label="Peta mini, ketuk untuk membuka peta"></canvas>
 <button id="wp" class="fixed world-ui show" type="button" aria-label="Hapus penunjuk arah"><svg id="wpA" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l7 18-7-4-7 4z"/></svg><span id="wpT"></span><span class="x" aria-hidden="true">&times;</span></button>

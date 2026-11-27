@@ -1,8 +1,8 @@
 /* Suara lingkungan prosedural (Web Audio, tanpa file aset): angin, burung, jangkrik malam, dan meong kucing.
    AudioContext baru dibuat setelah interaksi pertama pemain (aturan autoplay browser). */
 export function createAudio() {
-  let ctx = null, master = null, lp = null, under = false, brookG = null, brookF = null, windG = null, windF = null, leafG = null, cricG = null, purrG = null, noiseBuf = null, buzzG = null, buzzO = null, lapG = null, logG = null, surfG = null, surfF = null, cicG = null;
-  let on = true, vol = 0.8, nextBird = 3, birdFlock = 0, nextMeow = 6, t = 0;
+  let ctx = null, master = null, lp = null, under = false, brookG = null, brookF = null, windG = null, windF = null, leafG = null, cricG = null, purrG = null, noiseBuf = null, buzzG = null, buzzO = null, lapG = null, logG = null, surfG = null, surfF = null, cicG = null, rainG = null, rainLG = null;
+  let on = true, vol = 0.8, nextFarm = 6, nextOwa = 12, nextRoost = 4, nextBird = 3, birdFlock = 0, nextMeow = 6, t = 0;
 
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
@@ -31,6 +31,8 @@ export function createAudio() {
     const lp2 = src('lowpass', 420, 0.6); lapG = lp2.g;
     /* debur ombak pantai dan tonggeret hutan hujan */
     const sf = src('lowpass', 700, 0.5); surfG = sf.g; surfF = sf.fl;
+    /* hujan: desis butiran + gemuruh rendah */
+    rainG = src('bandpass', 2600, 0.35).g; rainLG = src('lowpass', 320, 0.4).g;
     const o3 = ctx.createOscillator(); o3.type = 'sawtooth'; o3.frequency.value = 5200; const f3 = ctx.createBiquadFilter(); f3.type = 'bandpass'; f3.frequency.value = 5200; f3.Q.value = 3;
     const am3 = ctx.createGain(); am3.gain.value = 0; const l3 = ctx.createOscillator(); l3.frequency.value = 45; const lg3 = ctx.createGain(); lg3.gain.value = 0.5;
     cicG = ctx.createGain(); cicG.gain.value = 0; l3.connect(lg3); lg3.connect(am3.gain); o3.connect(f3); f3.connect(am3); am3.connect(cicG); cicG.connect(master); o3.start(); l3.start();
@@ -60,6 +62,10 @@ export function createAudio() {
   }
 
   /* kicau kutilang: rangkaian nada bulat naik-turun (sekitar 1-2,5 kHz) */
+  /* owa (siamang/owa Jawa): seruan naik-turun bersahutan di hutan hujan */
+  function owa(vl, pn) { if (!ctx || !on) return; const at = ctx.currentTime + 0.02, n = 4 + Math.floor(Math.random() * 4); for (let i = 0; i < n; i++) { const t0 = at + i * (0.42 - i * 0.02), o = ctx.createOscillator(), g = ctx.createGain(), p = pan(pn); o.type = 'sine'; const f0 = 520 + i * 60; o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f0 * 1.9, t0 + 0.22); o.frequency.exponentialRampToValueAtTime(f0 * 1.2, t0 + 0.34); g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vl, t0 + 0.06); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.36); o.connect(g); g.connect(p); p.connect(master); o.start(t0); o.stop(t0 + 0.4); } }
+  /* kokok ayam jago */
+  function kokok(vl, pn) { if (!ctx || !on) return; const at = ctx.currentTime + 0.02, segs = [[0, 0.12, 600, 750], [0.14, 0.14, 760, 900], [0.3, 0.55, 900, 640]]; for (const [d, L, f0, f1] of segs) { const o = ctx.createOscillator(), f = ctx.createBiquadFilter(), g = ctx.createGain(), p = pan(pn); o.type = 'sawtooth'; o.frequency.setValueAtTime(f0, at + d); o.frequency.linearRampToValueAtTime(f1, at + d + L); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 2; g.gain.setValueAtTime(0.0001, at + d); g.gain.exponentialRampToValueAtTime(vl, at + d + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, at + d + L); o.connect(f); f.connect(g); g.connect(p); p.connect(master); o.start(at + d); o.stop(at + d + L + 0.02); } }
   function kicau(vl, pn) {
     if (!ctx || !on) return; const at = ctx.currentTime + 0.02, f = 1300 + Math.random() * 300;
     const seq = [[1, 1.35, 0.11], [1.5, 1.2, 0.09], [1.1, 1.6, 0.12], [1.7, 1.3, 0.1], [1.25, 1.0, 0.16]];
@@ -169,6 +175,12 @@ export function createAudio() {
       ramp(lapG, (s.shore || 0) * (0.05 + 0.05 * Math.max(0, Math.sin(t * 1.1) * Math.sin(t * 0.37 + 1))), 0.25);
       { const wv = 0.5 + 0.5 * Math.sin(t * 0.55) * Math.sin(t * 0.21 + 2); ramp(surfG, (s.surf || 0) * (0.04 + 0.14 * wv * wv) * (s.under ? 0.3 : 1), 0.3); surfF.frequency.setTargetAtTime(400 + 900 * wv, ctx.currentTime, 0.3); }
       ramp(cicG, 0.01 * (bm.hujan || 0) * s.day * (0.4 + 0.6 * Math.max(0, Math.sin(t * 0.13))) * inW, 0.4);
+      ramp(rainG, 0.11 * (s.rain || 0) * (s.under ? 0.15 : 1), 0.6); ramp(rainLG, 0.07 * (s.rain || 0) * (s.under ? 0.3 : 1), 0.6);
+      if (s.world && !s.under) {
+        if ((bm.peternakan || 0) > 0.45) { nextFarm -= dt; if (nextFarm <= 0) { const q = Math.random(); call(q < 0.45 ? 'ayam' : q < 0.75 ? 'sapi' : 'kambing', 0.12 + Math.random() * 0.1, Math.random() * 2 - 1); nextFarm = 5 + Math.random() * 8; }
+          if (s.day > 0.3 && s.day < 0.75) { nextRoost -= dt; if (nextRoost <= 0) { kokok(0.06, Math.random() * 2 - 1); nextRoost = 25 + Math.random() * 30; } } }
+        if ((bm.hujan || 0) > 0.45 && s.day > 0.3 && (s.rain || 0) < 0.3) { nextOwa -= dt; if (nextOwa <= 0) { owa(0.04 + Math.random() * 0.03, Math.random() * 2 - 1); nextOwa = 14 + Math.random() * 18; } }
+      }
       ramp(logG, 0.006 * (s.log || 0) * (0.5 + 0.5 * (Math.sin(t * 0.8) > -0.2 ? 1 : 0)), 0.2);
       const birdK = s.world ? 1 + 1.5 * (bm.hujan || 0) - 0.9 * (bm.gurun || 0) - 0.8 * (bm.gunung || 0) * 0.5 : 1;
       if (s.world && !s.under && s.day > 0.35 && birdK > 0.15) {

@@ -48,7 +48,7 @@ body.dissect .world-ui,body.dissect #tags{display:none!important}
 #mission{font-size:13px;line-height:1.35;margin:0}
 #near{font-size:12px;color:var(--muted);margin:6px 0 0;font-variant-numeric:tabular-nums}
 #topRight{right:max(12px,env(safe-area-inset-right,0px));top:calc(env(safe-area-inset-top,0px) + 12px);display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100vw - 340px)}
-#clock{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font:700 15px/1 var(--f-display);font-variant-numeric:tabular-nums}
+#clock{color:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--line);background:var(--panel);font:700 15px/1 var(--f-display);font-variant-numeric:tabular-nums}
 #clock i{width:10px;height:10px;border-radius:50%;background:var(--sun);box-shadow:0 0 10px var(--sun)}
 #clock.night i{background:#9db4ff;box-shadow:0 0 10px #9db4ff}
 #tip{left:50%;transform:translateX(-50%);bottom:calc(env(safe-area-inset-bottom,0px) + 18px);width:min(560px,calc(100vw - 32px));padding:12px 40px 12px 16px;font-size:13.5px}
@@ -213,3 +213,14 @@ body.leafmode p.leaf-only{display:block}
 body.forestmode .forest-only{display:flex}
 body.nodepth label[for=depth]{display:none!important}
 body.nosun label[for=sun]{display:none!important}
+
+#wxIco{font-size:13px;line-height:1;opacity:.85}
+#wx{right:max(12px,env(safe-area-inset-right,0px));width:min(300px,calc(100vw - 24px));padding:14px;border-radius:18px;border:1px solid var(--line);background:var(--panel);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);z-index:40;box-shadow:0 12px 32px rgba(0,0,0,.35)}
+#wx .wxh{margin:0 0 8px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;opacity:.7}
+#wx .wxh:not(:first-child){margin-top:14px}
+#wx .seg{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+#wx .seg3{grid-template-columns:repeat(3,1fr)}
+#wx .seg button,#wx .wxtog{min-height:40px;border-radius:12px;border:1px solid var(--line);background:rgba(255,255,255,.06);color:inherit;font:700 13px/1 inherit;cursor:pointer}
+#wx .wxtog{width:100%;margin-top:8px}
+#wx .seg button.on,#wx .wxtog[aria-pressed="true"]{background:var(--sun);color:#1b1a0e;border-color:transparent}
+#wx .wxn{margin:12px 0 0;font-size:12px;opacity:.65}

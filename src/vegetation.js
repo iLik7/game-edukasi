@@ -118,19 +118,20 @@ function tuftGeometry() {
   return g;
 }
 
-function buildGrass(scene, maxCount) {
+function buildGrass(scene, maxCount, clr = []) {
   const g = tuftGeometry(), r = rng(77), R = 22;
   const off = new Float32Array(maxCount * 4);
   for (let i = 0; i < maxCount; i++) { off[i * 4] = (r() * 2 - 1) * R; off[i * 4 + 1] = (r() * 2 - 1) * R; off[i * 4 + 2] = r(); off[i * 4 + 3] = 0.8 + r() * 0.7; }
   g.setAttribute('aOff', new THREE.InstancedBufferAttribute(off, 4));
   g.instanceCount = maxCount;
-  const u = { uPlayer: { value: new THREE.Vector3() }, uR: { value: R }, uTime: windU.uTime, uWater: { value: WATER }, uPathW: { value: PATH_W }, ...pathUniforms() };
+  const CL = []; for (let k = 0; k < 24; k++) { const c = clr[k]; CL.push(c ? new THREE.Vector3(c.x, c.z, c.r) : new THREE.Vector3(1e6, 1e6, 0)); }
+  const u = { uClr: { value: CL }, uPlayer: { value: new THREE.Vector3() }, uR: { value: R }, uTime: windU.uTime, uWater: { value: WATER }, uPathW: { value: PATH_W }, ...pathUniforms() };
   const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.92, metalness: 0, side: THREE.DoubleSide });
   mat.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, u);
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
-        attribute vec4 aOff; uniform vec3 uPlayer; uniform float uR, uTime, uWater, uPathW;
+        attribute vec4 aOff; uniform vec3 uPlayer; uniform vec3 uClr[24]; uniform float uR, uTime, uWater, uPathW;
         ${GLSL_TERRAIN}`)
       .replace('#include <color_vertex>', `#include <color_vertex>
         vColor.rgb *= 0.72 + 0.55 * aOff.z;`)
@@ -143,6 +144,7 @@ function buildGrass(scene, maxCount) {
         { float wo2 = wOuter(wp); if (wo2 > 0.0) { vec4 S = wSect(wp); float dc = length(wp) - wCoast(wp);
           float gk = 1.0 - wo2 * wS(0.3, 0.6, S.z); gk *= 1.0 - wS(-105.0, -75.0, dc); gk *= 1.0 - wS(60.0, 85.0, gh) * wo2;
           ok *= step(aOff.z * 0.999, gk); } }
+        for (int k = 0; k < 24; k++) ok *= step(uClr[k].z, length(wp - uClr[k].xy));
         float clump = 0.5 + 0.5 * sin(wp.x * 0.11) * sin(wp.y * 0.13 + 1.0);
         float sc = aOff.w * fade * ok * mix(0.6, 1.2, clump);
         float ang = aOff.z * 6.2831;
@@ -212,7 +214,7 @@ function normalizedMeshes(root, targetSize) {
   return out;
 }
 
-export async function buildVegetation({ scene, heroes, clear = [], addObs, progress, quality }) {
+export async function buildVegetation({ scene, heroes, clear = [], grassClear = [], addObs, progress, quality }) {
   const chunkSize = 40, chunks = [], lowDetail = { v: quality === 'hemat' };
   const step = async (t, f) => { progress && progress(f, t); await yieldFrame(); };
 
@@ -334,7 +336,7 @@ export async function buildVegetation({ scene, heroes, clear = [], addObs, progr
   }
 
   /* rumput */
-  const grass = buildGrass(scene, quality === 'hemat' ? 8000 : 34000);
+  const grass = buildGrass(scene, quality === 'hemat' ? 8000 : 34000, grassClear);
   grass.maxCount = 34000;
 
   /* batu dan bunga */

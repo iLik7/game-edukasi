@@ -60,7 +60,7 @@ export const BEBEK = (() => {
     ]),
     specimen: { id: 'bebek', kind: 'animal', name: 'Bebek', short: 'bebek', sci: 'Anas platyrhynchos domesticus', family: 'Anatidae', x: 265, z: -95, top: 0.2, mkOff: 0.6, promptY: 0.3, tagNear: 4,
       fact: 'Bebek atau itik adalah unggas air. Di banyak daerah, bebek digembalakan di sawah setelah panen untuk memakan sisa bulir dan hama.',
-      hint: 'Geser Kedalaman dari bulu ke organ. Cari kelenjar minyak di pangkal ekor dan kerongkongan yang melar. Bandingkan dengan ayam kampung di dekat titik awal.' } };
+      hint: 'Geser Kedalaman dari bulu ke organ. Cari kelenjar minyak di pangkal ekor dan kerongkongan yang melar. Bandingkan dengan ayam kampung di kandang ayam peternakan.' } };
 })();
 
 export const LEBAH = {

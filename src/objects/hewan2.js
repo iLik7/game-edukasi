@@ -28,7 +28,7 @@ export const AYAM = {
     ['Kloaka pada ayam adalah ...', ['Satu lubang keluar untuk kotoran, urine, dan telur', 'Kantong makanan di leher', 'Bagian otak', 'Tulang dada'], 'Burung, reptil, dan amfibi memiliki kloaka.'],
     ['Berapa lama kira-kira satu telur ayam terbentuk?', ['Sekitar 24 sampai 26 jam', 'Sekitar 1 jam', 'Sekitar 1 minggu', 'Sekitar 1 bulan'], 'Sebagian besar waktunya dipakai untuk membentuk cangkang.'],
   ]),
-  specimen: { id: 'ayam', kind: 'animal', name: 'Ayam kampung', short: 'ayam', sci: 'Gallus gallus domesticus', family: 'Phasianidae', x: -4, z: 12, top: 0.55, mkOff: 0.6, promptY: 0.45, tagNear: 5,
+  specimen: { id: 'ayam', kind: 'animal', name: 'Ayam kampung', short: 'ayam', sci: 'Gallus gallus domesticus', family: 'Phasianidae', x: 243, z: 26, top: 0.55, mkOff: 0.6, promptY: 0.45, tagNear: 5,
     fact: 'Ayam kampung dipelihara hampir di seluruh desa di Indonesia untuk diambil telur dan dagingnya. Ayam adalah burung, keturunan ayam hutan merah dari Asia Tenggara.',
     hint: 'Geser Kedalaman untuk mengupas bulu, otot, dan rangka. Titik oranye adalah perjalanan makanan dari paruh, tembolok, ampela, sampai kloaka. Titik biru adalah aliran udara lewat kantong udara.' },
 };
