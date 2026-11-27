@@ -265,6 +265,7 @@ export async function buildVegetation({ scene, heroes, clear = [], addObs, progr
     for (let gz = -ISLAND_R; gz < ISLAND_R; gz += stp) for (let gx = -ISLAND_R; gx < ISLAND_R; gx += stp) {
       const x = gx + (ro() - 0.5) * stp * 0.9, z = gz + (ro() - 0.5) * stp * 0.9, u = ro();
       if (Math.hypot(x, z) < 125) continue;
+      if (clear.some((c) => Math.hypot(x - c.x, z - c.z) < c.r)) continue;
       const B = biomeAt(x, z); if (B.hutan > 0.5 || B.laut > 0.05 || B.pantai > 0.3) continue;
       const h = heightAt(x, z); if (h < WATER + 1.2) continue;
       const pRain = B.hujan * 0.42, pPine = B.gunung * 0.3 * (1 - smooth(70, 88, h)), pFarm = B.peternakan * 0.012;
