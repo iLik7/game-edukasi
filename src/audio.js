@@ -144,7 +144,7 @@ export function createAudio() {
       const g = ctx.createGain(), p = pan(pn); g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(vl, at + 0.03); g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
       o.connect(am); am.connect(bp); bp.connect(g); g.connect(p); p.connect(master); o.start(at); o.stop(at + dur + 0.02); lfo.start(at); lfo.stop(at + dur + 0.02); }
   }
-  function call(id, vl, pn) { if (id === 'sapi') moo(vl, pn); else if (id === 'kambing') bleat(vl * 0.9, pn); else if (id === 'ayam') cluck(vl, pn); else if (id === 'katak') croak(vl, pn); else if (id === 'burung') kicau(vl, pn); else if (id === 'kupu' || id === 'kepiting') return; else meow(vl * 0.8, pn); }
+  function call(id, vl, pn) { if (id === 'sapi') moo(vl, pn); else if (id === 'kambing') bleat(vl * 0.9, pn); else if (id === 'ayam') cluck(vl, pn); else if (id === 'katak') croak(vl, pn); else if (id === 'burung') kicau(vl, pn); else if (id === 'kupu' || id === 'kepiting' || id === 'penyu' || id === 'unta') return; else meow(vl * 0.8, pn); }
 
   function ramp(g, v, tc = 0.6) { g.gain.setTargetAtTime(v, ctx.currentTime, tc); }
 

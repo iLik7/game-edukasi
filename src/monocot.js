@@ -47,7 +47,7 @@ function quads(list) {
 
 /* ================= KELAPA DI DUNIA ================= */
 let PALM = null;
-function palmAssets() {
+export function palmAssets() {
   if (PALM) return PALM;
   const r = rng(91);
   /* batang: bekas pelepah berupa cincin */
@@ -58,7 +58,7 @@ function palmAssets() {
   const nutM = new THREE.MeshStandardMaterial({ color: C(0.42, 0.5, 0.16), roughness: 0.55 });
   return (PALM = { trunkM, leafM, nutM });
 }
-function palmGeo(seed, H) {
+export function palmGeo(seed, H) {
   const r = rng(seed), lean = new THREE.Vector3(r() - 0.5, 0, r() - 0.5).normalize().multiplyScalar(0.8 + r() * 1.2);
   const curve = new THREE.CatmullRomCurve3([new THREE.Vector3(0, -0.3, 0), new THREE.Vector3(lean.x * 0.15, H * 0.35, lean.z * 0.15), new THREE.Vector3(lean.x * 0.55, H * 0.75, lean.z * 0.55), new THREE.Vector3(lean.x, H, lean.z)]);
   const trunk = new THREE.TubeGeometry(curve, 24, 1, 10, false);

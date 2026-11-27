@@ -114,6 +114,7 @@ export function buildWorldAnimal(scene, env, spec, home, seed = 404, bounds = nu
   const hit = new THREE.Mesh(new THREE.SphereGeometry(spec.hitR, 8, 6), new THREE.MeshBasicMaterial({ visible: false }));
   scene.add(hit);
   const W = spec.walk, r = rng(seed), an = { group: wrap, hit, x: home.x, z: home.z, y: heightAt(home.x, home.z), yaw: r() * TAU, parts: A };
+  const LPZ = spec.pivots.legs.map((p) => Math.sign(p[2]));
   let st = 'idle', timer = 2 + r() * 3, tx = home.x, tz = home.z, phase = 0, amp = 0, graze = 0, grazeT = 0, flA = W.perch ? 0 : 1;
   /* W.perch: burung hinggap di tanah saat diam dan terbang saat berpindah. W.sideways: berjalan menyamping (kepiting). */
   const headTo = (want) => { if (W.sideways) { const a1 = want + Math.PI / 2, a2 = want - Math.PI / 2, d1 = Math.atan2(Math.sin(a1 - an.yaw), Math.cos(a1 - an.yaw)), d2 = Math.atan2(Math.sin(a2 - an.yaw), Math.cos(a2 - an.yaw)); return Math.abs(d1) < Math.abs(d2) ? d1 : d2; } const d = want - an.yaw; return Math.atan2(Math.sin(d), Math.cos(d)); };
@@ -141,6 +142,7 @@ export function buildWorldAnimal(scene, env, spec, home, seed = 404, bounds = nu
     const sw = Math.sin(phase) * W.swing * amp;
     /* kaki berselang-seling (2, 4, atau 6 kaki); katak: kaki belakang menendang saat melompat */
     if (W.hop) { const hk = Math.max(0, Math.sin(phase)) * amp; A.legs.forEach((g, i) => { g.rotation.z = i >= 2 ? -1.1 * hk : 0.5 * hk; }); }
+    else if (W.legAxis === 'y') A.legs.forEach((g, i) => { g.rotation.y = sw * (((i % 2) ^ ((i >> 1) % 2)) ? -1 : 1) * Math.sign(LPZ[i] || 1); });
     else if (W.sideways) A.legs.forEach((g, i) => { g.rotation.x = sw * ((i + (i >> 1)) % 2 ? -1 : 1) * (W.legMask && !W.legMask[i] ? 0 : 1); });
     else A.legs.forEach((g, i) => { g.rotation.z = sw * (((i % 2) ^ ((i >> 1) % 2)) ? -1 : 1) * (i >= 2 ? 0.9 : 1); });
     if (W.perch) flA += ((st === 'walk' ? 1 : 0) - flA) * Math.min(1, dt * 2.5);
