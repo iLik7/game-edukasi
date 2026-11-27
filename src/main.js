@@ -119,8 +119,9 @@ const canvas=renderer.domElement;
 renderer.toneMapping=THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure=1;
 renderer.shadowMap.enabled=true;
-renderer.shadowMap.type=THREE.PCFShadowMap;
-const pixelRatio=function(){const d=window.devicePixelRatio||1;return quality==='tinggi'?Math.min(d,2):Math.min(d,1.25)};
+renderer.shadowMap.type=THREE.PCFShadowMap;renderer.shadowMap.autoUpdate=false;renderer.shadowMap.needsUpdate=true;
+let dynRes=1;/* resolusi dinamis: turun otomatis kalau frame berat */
+const pixelRatio=function(){const d=window.devicePixelRatio||1;return (quality==='tinggi'?Math.min(d,2):Math.min(d,1.25))*dynRes};
 function loadProgress(f,t){$('#loadBar').style.width=Math.round(f*100)+'%';if(t)$('#loadTxt').textContent=t}
 const tick=function(){return new Promise(function(r){setTimeout(r,0)})};
 
@@ -129,7 +130,7 @@ setPaths(TREES.concat(MO.map(function(a){return a.data.specimen})));
 const world=new THREE.Scene();
 const wcam=new THREE.PerspectiveCamera(66,1,0.15,1200);wcam.rotation.order='YXZ';
 const sky=createSky(world,renderer);
-const terrain=buildTerrain(world);const coastDeco=buildCoastDecor(world,heightAt,WATER);const rain=buildRainforestDecor(world,heightAt,{tajuk:[-250,20],rafflesia:[-262,34],kantong:[-238,40]});const farm=buildFarm(world,heightAt,{sawah:{x0:225,z0:-75,nx:4,nz:3,w:14,d:10},kandang:[302,22],lebah:[300,-75],kompos:[292,12],center:[260,-30]});const mtn=buildMountainDecor(world,heightAt,{cemara:[-15,-215],edelweis:[22,-242],gletser:[0,-345],iklim:[8,-198]});terrain.update({x:0,z:2},true);
+const terrain=buildTerrain(world);terrain.setQuality(quality);const coastDeco=buildCoastDecor(world,heightAt,WATER);const rain=buildRainforestDecor(world,heightAt,{tajuk:[-250,20],rafflesia:[-262,34],kantong:[-238,40]});const farm=buildFarm(world,heightAt,{sawah:{x0:225,z0:-75,nx:4,nz:3,w:14,d:10},kandang:[302,22],lebah:[300,-75],kompos:[292,12],center:[260,-30]});const mtn=buildMountainDecor(world,heightAt,{cemara:[-15,-215],edelweis:[22,-242],gletser:[0,-345],iklim:[8,-198]});terrain.update({x:0,z:2},true);
 /* kehidupan bioma: ornamen peternakan, flora-fauna hutan hujan, gurun, gunung */
 const plotTop=function(i,j){const w=14,d=10,cx=225+i*(w+1.2),cz=-75+j*(d+1.2);let hi=-1e9;for(let a=0;a<=4;a++)for(let b=0;b<=4;b++)hi=Math.max(hi,heightAt(cx-w/2+a*w/4,cz-d/2+b*d/4));return [cx,cz,hi+0.05]};
 const FARM_O={center:[262,-15],lumbung:[288,40,-Math.PI/2],kandangAyam:[COOP.x,COOP.z],ayamR:COOP.r,saung:[287,-62],pedati:[280,2,0.6],sumur:[250,12],palung:[270,43],jemur:[252,-40],kebun:[300,-45],
@@ -311,7 +312,9 @@ function applyQuality(q){
   quality=q;try{localStorage.setItem(QKEY,q)}catch(e){}
   fxW.setQuality(q);fxD.setQuality(q);ALL.forEach(function(a){if(a.fx)a.fx.setQuality(q)});
   sky.setShadowSize(q==='tinggi'?2048:1024);sky.envEvery=q==='tinggi'?2.5:5;
-  veg.setQuality(q);
+  veg.setQuality(q);terrain.setQuality(q);
+  /* Hemat: matikan sheen & clearcoat di material dunia (shader per piksel jauh lebih murah di HP) */
+  world.traverse(function(o){const ms=o.material?(Array.isArray(o.material)?o.material:[o.material]):[];ms.forEach(function(m){if(!m.isMeshPhysicalMaterial)return;if(m.userData.pq===undefined)m.userData.pq=[m.sheen,m.clearcoat];const lo=q==='hemat';const sh=lo?0:m.userData.pq[0],cc=lo?0:m.userData.pq[1];if(m.sheen!==sh||m.clearcoat!==cc){m.sheen=sh;m.clearcoat=cc;m.needsUpdate=true}})});
   const b=$('#bQual');if(b)b.querySelector('span').textContent='Grafik: '+(q==='tinggi'?'Tinggi':'Hemat');
   resize();
 }
@@ -755,7 +758,9 @@ function updWorld(dt){
   AN.forEach(function(a){
     /* hewan kecil disembunyikan dari jauh supaya draw call di HP tetap rendah */
     const vis=a.spec.worldScale<0.12?(quality==='hemat'?22:34):(quality==='hemat'?45:70);
-    const w=a.w;w.update(dt,T,P);w.group.visible=Math.hypot(w.x-P.x,w.z-P.z)<vis;
+    const w=a.w,dw=Math.hypot(w.x-P.x,w.z-P.z);w.group.visible=dw<vis;
+    /* hewan jauh: animasi & jalan cukup dihitung jarang */
+    if(dw<vis*1.3){w.update(dt+(w._acc||0),T,P);w._acc=0}else{w._acc=(w._acc||0)+dt;if(w._acc>0.5){w.update(Math.min(w._acc,0.5),T,P);w._acc=0}}
     a.extraW.forEach(function(e){const de=Math.hypot(e.x-P.x,e.z-P.z);e.group.visible=de<vis*0.8;if(e.group.visible)e.update(dt,T,P)});
     const H=HEROES[a.hi],o=heroObjs[a.hi];H.x=w.x;H.z=w.z;o.y=w.y+(a.spec.walk.perch?w.alt||0:0);o.mk.position.x=w.x;o.mk.position.z=w.z;o.ring.position.set(w.x,w.y+0.04,w.z);
     /* suara hewan sesekali saat pemain dekat */
@@ -843,10 +848,15 @@ function step(dt){
     if(tGoal!==null){const d=((tGoal-tDay)%1+1)%1,st=Math.min(d,dt*0.2);tDay=(tDay+st)%1;if(d<0.0015){tDay=tGoal;tGoal=null}}else if(!wxPaused)tDay=(tDay+dt/1440)%1;
     updWorld(dt);
     sky.update(tDay,T,dt,{x:P.x,y:P.y+1.6,z:P.z},P.under);setClock();
+    /* bidang jauh kamera mengikuti kabut: yang sudah tertutup kabut >99% tidak digambar sama sekali */
+    {const fd=world.fog.density,fr=clamp(2.3/Math.max(fd,1e-4),110,quality==='hemat'?380:520);if(Math.abs(fr-wcam.far)>wcam.far*0.03){wcam.far=fr;wcam.updateProjectionMatrix();sky.skyK=Math.min(1,fr*0.92/900)}}
     terrain.update(P);coastDeco.update(P);farm.update(P,T);rain.update(P);mtn.update(P);{const nt=1-sky.day;farmLife.update(P,T,dt);jungle.update(P,T,dt,nt);desert.update(P,T,dt);alpine.update(P,T,dt);rainFx.update({x:P.x,y:P.y+1.6,z:P.z},T,sky.wx.rain*(1-smooth(84,98,P.y)),P.under)}updBiome(dt);veg.update(P,T,dt);water.update(T,P);if(bush)bush.update(T);river.update(T);nav.update(dt,P,cam.yaw,T);
     {const rd=riverInfo(P.x,P.z).d;const nb=function(x,z,r){return Math.pow(clamp(1-Math.hypot(P.x-x,P.z-z)/r,0,1),1.5)};audio.update(dt,{day:sky.day,world:true,under:P.under,river:Math.pow(clamp(1-rd/28,0,1),2),buzz:nb(BUNGA.specimen.x,BUNGA.specimen.z,9),shore:nb(BAKAU.specimen.x,BAKAU.specimen.z,16),log:nb(JAMUR.specimen.x,JAMUR.specimen.z,10),bio:bioW,rain:sky.wx.rain,surf:clamp(1-Math.abs(Math.hypot(P.x,P.z)-coastR(P.x,P.z))/60,0,1)})}
+    /* Hemat: peta bayangan dirender ulang tiap 3 frame (matahari & kamera bayangan bergerak lambat) */
+    shTick++;renderer.shadowMap.needsUpdate=quality==='tinggi'||shTick%3===0||!!camFx;
     fxW.render(dt);
   }else{
+    renderer.shadowMap.needsUpdate=true;
     D.update(dt,T,selected,hovered);
     if(isAnimal()&&anOf(subject).leaf&&dState.R){
       gasAcc+=dt;if(gasAcc>0.12){gasAcc=0;const R=dState.R,pc=Math.round(R.rate*100);$('#rateBar').style.width=pc+'%';$('#rateTxt').textContent=pc+'%';
@@ -864,8 +874,11 @@ function step(dt){
     fxCur().render(dt);
   }
 }
-let perfAcc=0,perfN=0,perfT=0,autoDone=false;
+let perfAcc=0,perfN=0,perfT=0,autoDone=false,shTick=0;
+let drAcc=0,drN=0;
 function perfWatch(dt){
+  /* resolusi dinamis (semua mode): rata-rata frame tiap 2 detik; >40 ms turunkan, <22 ms naikkan */
+  if(!DEBUG&&dt>0){drAcc+=dt;drN++;if(drAcc>=2){const av=drAcc/drN;drAcc=0;drN=0;const prev=dynRes;if(av>0.040)dynRes=Math.max(0.6,dynRes-0.1);else if(av<0.022)dynRes=Math.min(1,dynRes+0.05);if(Math.abs(prev-dynRes)>0.001)resize()}}
   if(autoDone||quality!=='tinggi'||mode!=='world'||DEBUG)return;
   perfT+=dt;if(perfT<5)return;
   perfAcc+=dt;perfN++;

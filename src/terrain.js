@@ -213,7 +213,9 @@ export function buildTerrain(scene) {
   };
   /* petak dibangun di sekitar pemain; tingkat detail menurun dengan jarak */
   const tiles = new Map(), group = new THREE.Group(); scene.add(group);
-  const R = 330, lodOf = (d) => d < 140 ? 96 : d < 240 ? 32 : 12;
+  /* LOD per kualitas: d = jarak tepi petak terdekat ke pemain */
+  const LODS = { hemat: [[45, 48], [130, 20], [1e9, 8]], tinggi: [[70, 96], [170, 32], [1e9, 12]] };
+  let lodT = LODS.tinggi; const R = 330, lodOf = (d) => { for (const [lim, s] of lodT) if (d < lim) return s; return 8; };
   let queue = [];
   function want(P) {
     const out = new Map(), ix0 = Math.floor((P.x - R) / TILE), ix1 = Math.floor((P.x + R) / TILE), iz0 = Math.floor((P.z - R) / TILE), iz1 = Math.floor((P.z + R) / TILE);
@@ -233,6 +235,7 @@ export function buildTerrain(scene) {
   let lastX = 1e9, lastZ = 1e9;
   return {
     group,
+    setQuality(q) { lodT = LODS[q] || LODS.tinggi; lastX = 1e9; },
     update(P, now) {
       if (Math.hypot(P.x - lastX, P.z - lastZ) > 12 || now) {
         lastX = P.x; lastZ = P.z; const W = want(P);

@@ -23,8 +23,8 @@ function paint(g, c, top = null, y0 = 0, y1 = 1) {
 const bake = (parts) => mergeGeometries(parts.map((g) => { g = ni(g); for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv', 'color'].includes(k)) g.deleteAttribute(k); return g; }));
 
 /* helai daun melengkung: pangkal di (0,0,0), memanjang ke +z sambil menekuk dari sudut a0 ke a1 (0 = tegak, PI/2 = mendatar) */
-function leaf(w, L, a0, a1, segs = 6, taper = 1, fold = 0.15) {
-  const g = new THREE.PlaneGeometry(1, 1, 2, segs), p = g.attributes.position;
+function leaf(w, L, a0, a1, segs = 6, taper = 1, fold = 0.15, wseg = 2) {
+  const g = new THREE.PlaneGeometry(1, 1, wseg, segs), p = g.attributes.position;
   for (let i = 0; i < p.count; i++) {
     const u = p.getX(i), v = p.getY(i) + 0.5; let y = 0, z = 0; const N = 8;
     for (let k = 0; k < N; k++) { const t = (k + 0.5) / N * v, ang = a0 + (a1 - a0) * t; y += Math.cos(ang) * L * v / N; z += Math.sin(ang) * L * v / N; }
@@ -71,11 +71,11 @@ function bananaGeo(r, fruit) {
     P.push(paint(ellG([0.09, 0.16, 0.09], [fx + 0.15, H - 1.38, 0], 7), C(0.45, 0.12, 0.2))); }
   return bake(P);
 }
-function fernGeo(r, s = 1) { const P = []; for (let k = 0; k < 11; k++) P.push(paint(leaf(0.34 * s, (1.0 + r() * 0.5) * s, 0.35 + r() * 0.3, 1.75, 6, 1, 0.05).rotateY(k * 2.4 + r() * 0.5), C(0.14, 0.32, 0.08), C(0.3, 0.5, 0.12), 0, s)); return bake(P); }
+function fernGeo(r, s = 1) { const P = []; for (let k = 0; k < 11; k++) P.push(paint(leaf(0.34 * s, (1.0 + r() * 0.5) * s, 0.35 + r() * 0.3, 1.75, 4, 1, 0, 1).rotateY(k * 2.4 + r() * 0.5), C(0.14, 0.32, 0.08), C(0.3, 0.5, 0.12), 0, s)); return bake(P); }
 function treeFernGeo(r) {
   const P = [], H = 2.6 + r() * 2.2;
   P.push(paint(tubeG([[0, 0, 0], [0.1, H * 0.5, 0.05], [0, H, 0]], 0.13, 8, 6), C(0.22, 0.16, 0.11)));
-  for (let k = 0; k < 13; k++) P.push(paint(leaf(0.75, 2.2 + r() * 0.6, 0.5 + r() * 0.3, 2.0, 7, 1, 0.04).rotateY(k * 2.4).translate(0, H, 0), C(0.16, 0.36, 0.1), C(0.32, 0.52, 0.14), H, H + 1));
+  for (let k = 0; k < 13; k++) P.push(paint(leaf(0.75, 2.2 + r() * 0.6, 0.5 + r() * 0.3, 2.0, 5, 1, 0, 1).rotateY(k * 2.4).translate(0, H, 0), C(0.16, 0.36, 0.1), C(0.32, 0.52, 0.14), H, H + 1));
   for (let k = 0; k < 3; k++) P.push(paint(new THREE.TorusGeometry(0.07, 0.025, 4, 8, 4.5).rotateY(k * 2.1).translate(Math.cos(k * 2.1) * 0.12, H + 0.15, Math.sin(k * 2.1) * 0.12), C(0.4, 0.45, 0.15)));
   return bake(P);
 }
@@ -87,7 +87,7 @@ function heliconiaGeo(r) {
 }
 function understoryPalmGeo(r) {
   const P = [], H = 1.4 + r() * 1.6; P.push(paint(new THREE.CylinderGeometry(0.05, 0.07, H, 6).translate(0, H / 2, 0), C(0.3, 0.26, 0.16)));
-  for (let k = 0; k < 9; k++) P.push(paint(leaf(0.6, 1.5 + r() * 0.4, 0.4 + r() * 0.4, 1.5, 6, 1, 0.08).rotateY(k * 2.4).translate(0, H, 0), C(0.16, 0.36, 0.1), C(0.26, 0.5, 0.16), H, H + 1));
+  for (let k = 0; k < 9; k++) P.push(paint(leaf(0.6, 1.5 + r() * 0.4, 0.4 + r() * 0.4, 1.5, 4, 1, 0, 1).rotateY(k * 2.4).translate(0, H, 0), C(0.16, 0.36, 0.1), C(0.26, 0.5, 0.16), H, H + 1));
   return bake(P);
 }
 function birdNestFernGeo(r) { const P = []; for (let k = 0; k < 12; k++) P.push(paint(leaf(0.28, 0.9 + r() * 0.3, 0.3, 1.1, 5, 1, 0.1).rotateY(k * 0.52), C(0.32, 0.55, 0.16), C(0.42, 0.62, 0.2), 0, 0.8)); P.push(paint(ellG([0.22, 0.15, 0.22], [0, 0, 0], 7), C(0.25, 0.18, 0.12))); return bake(P); }

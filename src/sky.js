@@ -104,7 +104,7 @@ export function createSky(scene, renderer) {
   const api = {
     sun, sunDir, day: 1, elev: 1, get isNight() { return isNight; },
     /* suasana bioma: kepadatan kabut dan rona cakrawala (diatur dari main) */
-    fogD: 0.0155, tint: new THREE.Color(1, 1, 1),
+    fogD: 0.0155, tint: new THREE.Color(1, 1, 1), skyK: 1,
     /* cuaca: target (0..1) diatur dari main; nilai aktual dihaluskan */
     weather: { cloud: 0, rain: 0 }, wx: { cloud: 0, rain: 0 },
     envEvery: 2.5,
@@ -144,8 +144,9 @@ export function createSky(scene, renderer) {
 
       const cx = focus.x, cy = focus.y, cz = focus.z;
       dome.position.set(cx, cy, cz);
+      dome.scale.setScalar(api.skyK); stars.scale.setScalar(api.skyK); moon.scale.setScalar(api.skyK);
       stars.position.set(cx, 0, cz); stars.material.opacity = Math.pow(1 - day, 2) * 0.95 * (1 - ov * 0.9);
-      moon.position.set(cx - sunDir.x * 700, cy - sunDir.y * 700, cz - sunDir.z * 700); moon.visible = elev < 0.1 && !under;
+      moon.position.set(cx - sunDir.x * 700 * api.skyK, cy - sunDir.y * 700 * api.skyK, cz - sunDir.z * 700 * api.skyK); moon.visible = elev < 0.1 && !under;
 
       /* matahari/bulan mengikuti pemain, dibulatkan agar bayangan tidak berkedip */
       const sx = Math.round(cx * 2) / 2, sz = Math.round(cz * 2) / 2;

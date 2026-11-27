@@ -15,12 +15,13 @@ const at = (m, p) => { m.position.copy(p); return m; };
 
 /* ---------- bentuk bersama ---------- */
 /* edelweis: roset daun sempit berbulu putih keabuan, tangkai dengan bonggol bunga putih (braktea) berpusat kuning */
-export function edelweissGeo(r, s = 1) {
+export function edelweissGeo(r, s = 1, hi = false) {
   const leaves = [], stems = [], bracts = [], discs = [];
   for (let k = 0; k < 28; k++) { const a = r() * TAU, h = r() * 0.45 * s; leaves.push(new THREE.PlaneGeometry(0.04 * s, 0.2 * s).translate(0, 0.1 * s, 0).rotateX(-0.7 - r() * 0.5).rotateY(a).translate(0, h, 0)); }
-  for (let f = 0; f < 5; f++) { const a = r() * TAU, d = r() * 0.15 * s, top = V(Math.cos(a) * d, (0.55 + r() * 0.25) * s, Math.sin(a) * d); stems.push(tubeG([[0, 0, 0], [top.x * 0.5, top.y * 0.5, top.z * 0.5], top.toArray()], 0.012 * s, 6, 4));
+  for (let f = 0; f < 5; f++) { const a = r() * TAU, d = r() * 0.15 * s, top = V(Math.cos(a) * d, (0.55 + r() * 0.25) * s, Math.sin(a) * d); stems.push(tubeG([[0, 0, 0], [top.x * 0.5, top.y * 0.5, top.z * 0.5], top.toArray()], 0.012 * s, 3, 3));
     for (let k = 0; k < 9; k++) bracts.push(new THREE.PlaneGeometry(0.05 * s, 0.11 * s).translate(0, 0.055 * s, 0).rotateX(-1.2).rotateY(k / 9 * TAU).translate(top.x, top.y, top.z));
-    for (let q = 0; q < 5; q++) { const b = q / 5 * TAU; discs.push(ellG([0.022 * s, 0.018 * s, 0.022 * s], [top.x + Math.cos(b) * 0.025 * s, top.y + 0.02 * s, top.z + Math.sin(b) * 0.025 * s], 5)); } }
+    if (hi) { for (let q = 0; q < 7; q++) { const b = q / 7 * TAU; discs.push(ellG([0.022 * s, 0.018 * s, 0.022 * s], [top.x + Math.cos(b) * 0.028 * s, top.y + 0.02 * s, top.z + Math.sin(b) * 0.028 * s], 8)); } discs.push(ellG([0.025 * s, 0.02 * s, 0.025 * s], [top.x, top.y + 0.03 * s, top.z], 8)); }
+    else discs.push(ellG([0.05 * s, 0.03 * s, 0.05 * s], [top.x, top.y + 0.02 * s, top.z], 6)); }
   return { leaves: mg(leaves), stems: mg(stems), bracts: mg(bracts), discs: mg(discs) };
 }
 /* cemara gunung: batang tegak, cabang mendatar, ranting jarum menjuntai */
@@ -63,7 +64,7 @@ export function buildMountainDecor(scene, heightAt, spots) {
 /* ================= BEDAH: EDELWEIS ================= */
 export function buildEdelweissDissect(renderer) {
   const S = stage(renderer, ['#4a5a6a', '#0e141a'], 3.2), r = rng(91);
-  const e = edelweissGeo(r, 4);
+  const e = edelweissGeo(r, 4, true);
   const leafM = new THREE.MeshStandardMaterial({ color: C(0.62, 0.68, 0.6), roughness: 0.95, side: THREE.DoubleSide });
   S.add('daun', new THREE.Mesh(e.leaves, leafM)); S.add('daun', new THREE.Mesh(e.stems, new THREE.MeshStandardMaterial({ color: C(0.6, 0.65, 0.55) })));
   S.add('braktea', new THREE.Mesh(e.bracts, new THREE.MeshStandardMaterial({ color: C(0.96, 0.96, 0.92), roughness: 0.85, side: THREE.DoubleSide })));
