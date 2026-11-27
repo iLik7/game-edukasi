@@ -351,7 +351,7 @@ export async function buildVegetation({ scene, heroes, clear = [], addObs, progr
           let x, z, h, t = 0;
           do { const a = rr() * TAU, d = rr() < 0.4 ? LAKE.r + 2 + rr() * 8 : 12 + rr() * 95; x = (rr() < 0.4 ? LAKE.x : 0) + Math.cos(a) * d; z = (rr() < 0.4 ? LAKE.z : 0) + Math.sin(a) * d; h = heightAt(x, z); t++; } while ((h < WATER - 0.3 || riverInfo(x, z).d < 3.0 || Math.hypot(x, z) < 8 || pathDist(x, z) < 2 || Math.abs(x) > 110 || Math.abs(z) > 110) && t < 40);
           const s = 0.5 + rr() * rr() * 2.4;
-          e.set((rr() - 0.5) * 0.4, rr() * TAU, (rr() - 0.5) * 0.4); q.setFromEuler(e); p.set(x, h + s * 0.06, z); sc.set(s * (0.9 + rr() * 0.4), s * (0.7 + rr() * 0.3), s);
+          e.set((rr() - 0.5) * 0.4, rr() * TAU, (rr() - 0.5) * 0.4); q.setFromEuler(e); { let lo = h; for (let k = 0; k < 6; k++) { const aa = k / 6 * TAU; lo = Math.min(lo, heightAt(x + Math.cos(aa) * s * 0.45, z + Math.sin(aa) * s * 0.45)); } p.set(x, lo + s * 0.04, z); } sc.set(s * (0.9 + rr() * 0.4), s * (0.7 + rr() * 0.3), s);
           m4.compose(p, q, sc); im.setMatrixAt(i, m4);
           if (s > 1.2 && part === parts[0]) addObs(x, z, s * 0.42);
         }

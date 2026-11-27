@@ -184,7 +184,7 @@ LF.forEach(function(a){
 GEO.forEach(function(a){
   const H=a.data.specimen,y=heightAt(H.x,H.z),face=Math.atan2(0-H.x,2-H.z);
   if(a.data.id==='tanah'){buildSoilBank(world,H.x,y,H.z,face);addObs(H.x,H.z,1.2)}
-  else if(a.data.id==='batuan'){buildRockOutcrop(world,H.x,y,H.z);addObs(H.x,H.z,1.4)}
+  else if(a.data.id==='batuan'){const og=buildRockOutcrop(world,H.x,y,H.z);og.children.forEach(function(m){let lo=1e9;for(let k=0;k<6;k++){const aa=k/6*Math.PI*2;lo=Math.min(lo,heightAt(H.x+m.position.x+Math.cos(aa)*0.6,H.z+m.position.z+Math.sin(aa)*0.6))}m.position.y+=lo-y-0.12});addObs(H.x,H.z,1.4)}
   else{buildSignboard(world,H.x,y,H.z,face);addObs(H.x,H.z,0.6)}
   const mk=new THREE.Mesh(new THREE.OctahedronGeometry(0.2,0),new THREE.MeshStandardMaterial({color:0xffd35a,emissive:0xffa800,emissiveIntensity:2.2,roughness:0.3}));mk.position.set(H.x,0,H.z);mk.userData.noAO=true;world.add(mk);
   const rg=new THREE.RingGeometry(1.5,1.62,48,1);rg.rotateX(-Math.PI/2);
@@ -768,11 +768,11 @@ sky.update(tDay,T,0.016,{x:P.x,y:P.y+1.6,z:P.z});setClock();
 $('#loading').classList.add('done');
 setTimeout(function(){$('#loading').style.display='none'},700);
 
-if(DEBUG)window.__hi={enter:function(i){doEnter(i)},enterFx:enterDissect,exit:exitDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},look:function(i,d){const H=HEROES[i];d=d||11;const L=Math.hypot(H.x,H.z-2)||1;P.x=H.x+(0-H.x)/L*d;P.z=H.z+(2-H.z)/L*d;P.y=heightAt(P.x,P.z);cam.yaw=Math.atan2(P.x-H.x,P.z-H.z);cam.pitch=0.22},getMode:function(){return mode},nav:nav,fx:function(){return [camFx&&camFx.t,camFx&&camFx.dir,dIntro&&dIntro.t]},ds:function(){return dState},fishW:fishW};
+if(DEBUG)window.__hi={enter:function(i){doEnter(i)},enterFx:enterDissect,exit:exitDissect,select:select,P:P,cam:cam,startQuiz:startQuiz,openJournal:openJournal,renderer:renderer,world:world,veg:veg,sky:sky,applyQuality:applyQuality,setTime:function(t){tDay=t},look:function(i,d){const H=HEROES[i];d=d||11;const L=Math.hypot(H.x,H.z-2)||1;P.x=H.x+(0-H.x)/L*d;P.z=H.z+(2-H.z)/L*d;P.y=heightAt(P.x,P.z);cam.yaw=Math.atan2(P.x-H.x,P.z-H.z);cam.pitch=0.22},getMode:function(){return mode},nav:nav,h:heightAt,terrain:terrain,wcam:wcam,THREE:THREE,fx:function(){return [camFx&&camFx.t,camFx&&camFx.dir,dIntro&&dIntro.t]},ds:function(){return dState},fishW:fishW};
 
 let last=performance.now(),paused=false,edgeT=-99;
 /* suasana bioma: kabut, rona langit, dan nama wilayah saat berpindah */
-const ZONE={hutan:['Hutan Ilmu',0.0155,[1,1,1]],hujan:['Hutan Hujan Tropis',0.026,[0.9,1.0,0.95]],gunung:['Pegunungan',0.009,[0.95,0.98,1.05]],peternakan:['Peternakan dan Sawah',0.010,[1.03,1.02,0.95]],gurun:['Gurun Pasir',0.006,[1.12,1.0,0.82]],pantai:['Pantai',0.008,[1.0,1.02,1.05]],laut:['Laut',0.008,[0.95,1.0,1.08]]};
+const ZONE={hutan:['Hutan Ilmu',0.0155,[1,1,1]],hujan:['Hutan Hujan Tropis',0.026,[0.9,1.0,0.95]],gunung:['Pegunungan',0.0095,[0.95,0.98,1.05]],peternakan:['Peternakan dan Sawah',0.010,[1.03,1.02,0.95]],gurun:['Gurun Pasir',0.0088,[1.12,1.0,0.82]],pantai:['Pantai',0.009,[1.0,1.02,1.05]],laut:['Laut',0.009,[0.95,1.0,1.08]]};
 let bioAcc=0,bioCur='hutan',bioW={},bioT={d:0.0155,c:new THREE.Color(1,1,1)};
 function updBiome(dt){
   bioAcc+=dt;if(bioAcc>0.3){bioAcc=0;const b=biomeAt(P.x,P.z);bioW=b;let d=0,c=[0,0,0],s=0;

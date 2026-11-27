@@ -31,13 +31,15 @@ function coralPiece(r, s, bleach = 0) {
 /* ================= HIASAN DUNIA ================= */
 export function buildCoastDecor(scene, heightAt, WATER) {
   const groups = [], r = rng(2026);
+  /* tinggi terendah di bawah tapak benda supaya tidak ada sisi yang melayang di lereng */
+  const lowAt = (x, z, rad) => { let m = heightAt(x, z); for (let k = 0; k < 6; k++) { const a = k / 6 * TAU; m = Math.min(m, heightAt(x + Math.cos(a) * rad, z + Math.sin(a) * rad)); } return m; };
   const cluster = (cx, cz) => { const g = new THREE.Group(); g.userData.c = V(cx, 0, cz); scene.add(g); groups.push(g); return g; };
   /* kelapa sepanjang pantai: kelompok per ~60 m di garis pantai */
   { const A = palmAssets(); for (let a = 0; a < TAU; a += 0.06) {
     const cx = Math.cos(a), cz = Math.sin(a); let R0 = coastR(cx * 100, cz * 100) - 40;
     const B = biomeAt(cx * R0, cz * R0); if (B.gunung > 0.45) continue;
     const g = cluster(cx * R0, cz * R0), T = [], L = [], N = [];
-    for (let k = 0; k < 4; k++) { if (r() < 0.25) continue; const rr = R0 - 8 + r() * 30, aa = a + (r() - 0.5) * 0.05, x = Math.cos(aa) * rr, z = Math.sin(aa) * rr, y = heightAt(x, z); if (y < WATER + 0.3) continue;
+    for (let k = 0; k < 4; k++) { if (r() < 0.25) continue; const rr = R0 - 8 + r() * 30, aa = a + (r() - 0.5) * 0.05, x = Math.cos(aa) * rr, z = Math.sin(aa) * rr, y = lowAt(x, z, 0.35); if (y < WATER + 0.3) continue;
       const P = palmGeo(Math.floor(r() * 999), 6 + r() * 4), m = new THREE.Matrix4().makeRotationY(r() * TAU).setPosition(x, y - 0.1, z); T.push(P.trunk.applyMatrix4(m)); L.push(P.leaves.applyMatrix4(m)); N.push(P.nuts.applyMatrix4(m)); }
     if (T.length) { const t = new THREE.Mesh(mergeGeometries(T), A.trunkM), l = new THREE.Mesh(mergeGeometries(L), A.leafM), n = new THREE.Mesh(mergeGeometries(N), A.nutM); t.castShadow = l.castShadow = true; l.userData.noAO = true; g.add(t, l, n); }
   } }
@@ -50,10 +52,10 @@ export function buildCoastDecor(scene, heightAt, WATER) {
   { const cm = new THREE.MeshStandardMaterial({ color: C(0.32, 0.5, 0.26), roughness: 0.6 }), rm = new THREE.MeshStandardMaterial({ color: C(0.66, 0.5, 0.36), roughness: 0.95, flatShading: true });
     for (let gx = -40; gx < 560; gx += 70) for (let gz = 40; gz < 560; gz += 70) {
       const B = biomeAt(gx, gz); if (B.gurun < 0.5 || B.laut > 0.1 || B.pantai > 0.5) continue; const g = cluster(gx, gz), K = [], S = [];
-      for (let i = 0; i < 6; i++) { const x = gx + (r() - 0.5) * 60, z = gz + (r() - 0.5) * 60, y = heightAt(x, z), h = 1.5 + r() * 2.5;
+      for (let i = 0; i < 6; i++) { const x = gx + (r() - 0.5) * 60, z = gz + (r() - 0.5) * 60, y = lowAt(x, z, 0.3) - 0.05, h = 1.5 + r() * 2.5;
         K.push(new THREE.CylinderGeometry(0.22, 0.26, h, 10).translate(x, y + h / 2, z), ellG([0.22, 0.22, 0.22], [x, y + h, z], 10));
         if (r() < 0.7) { const s = r() < 0.5 ? 1 : -1, ay = y + h * (0.35 + r() * 0.25), ah = 0.8 + r() * 0.8; K.push(tubeG([[x, ay, z], [x + s * 0.55, ay + 0.05, z], [x + s * 0.6, ay + ah, z]], 0.15, 10, 8), ellG([0.15, 0.15, 0.15], [x + s * 0.6, ay + ah, z], 8)); } }
-      for (let i = 0; i < 5; i++) { const x = gx + (r() - 0.5) * 60, z = gz + (r() - 0.5) * 60, s = 0.5 + r() * 1.4; S.push(new THREE.DodecahedronGeometry(s, 0).scale(1, 0.6, 0.9).translate(x, heightAt(x, z) + s * 0.25, z)); }
+      for (let i = 0; i < 5; i++) { const x = gx + (r() - 0.5) * 60, z = gz + (r() - 0.5) * 60, s = 0.5 + r() * 1.4; S.push(new THREE.DodecahedronGeometry(s, 0).scale(1, 0.6, 0.9).translate(x, lowAt(x, z, s * 0.9) + s * 0.12, z)); }
       const k = new THREE.Mesh(mergeGeometries(K), cm), s = new THREE.Mesh(mergeGeometries(S), rm); k.castShadow = s.castShadow = true; g.add(k, s);
     } }
   return { update(P) { for (const g of groups) g.visible = Math.hypot(P.x - g.userData.c.x, P.z - g.userData.c.z) < 210; } };
